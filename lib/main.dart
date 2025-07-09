@@ -1,16 +1,15 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:intl/date_symbol_data_local.dart'; // Import untuk inisialisasi
+import 'package:intl/date_symbol_data_local.dart';
 
 // Sesuaikan path import ini dengan struktur folder Anda
-import 'pages/login/login_page.dart';
+import 'splash_logic_page.dart'; // <-- PERBAIKAN DI SINI
 
 Future<void> main() async {
   // Pastikan Flutter binding sudah siap
   WidgetsFlutterBinding.ensureInitialized();
 
-  // >> PERBAIKAN: Inisialisasi data locale untuk Bahasa Indonesia <<
+  // Inisialisasi data locale untuk Bahasa Indonesia
   await initializeDateFormatting('id_ID', null);
 
   runApp(const MyApp());
@@ -34,16 +33,16 @@ class MyApp extends StatelessWidget {
         Locale('id', 'ID'), // Mendukung Bahasa Indonesia
       ],
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.green,
+          backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
           elevation: 1,
         ),
       ),
-      home: const LoginPage(),
+      home: const SplashLogicPage(),
     );
   }
 }

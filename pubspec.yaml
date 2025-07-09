@@ -10,15 +10,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  
   flutter_localizations:
     sdk: flutter
 
-  # PERBAIKAN: Menggunakan versi yang stabil dan kompatibel
   getwidget: ^6.0.0
   carousel_slider: ^5.1.1
-
-  # Dependensi lain
   google_fonts: ^6.2.1
   http: ^1.4.0
   shared_preferences: ^2.5.3
@@ -31,15 +28,49 @@ dependencies:
   font_awesome_flutter: ^10.8.0
   firebase_messaging: ^15.2.7
   firebase_core: ^3.14.0
+  image_picker: ^1.1.2
+  shimmer: ^3.0.0
+  flutter_html: ^3.0.0-beta.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.6
 
+# Konfigurasi untuk Launcher Icons (indentasi sudah benar)
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/logo_desa.png"
+  min_sdk_android: 21
+
+# Konfigurasi utama Flutter
 flutter:
   uses-material-design: true
 
-env  assets:
-  - .
+  # Konfigurasi untuk Assets (struktur sudah benar)
+  assets:
+    - assets/icon/ # Contoh folder untuk ikon aplikasi
+    # - assets/images/ # Contoh jika Anda punya folder gambar
+    # - assets/lottie/ # Contoh jika Anda punya animasi lottie
+
+    
+flutter_native_splash:
+  # Warna latar belakang splash screen (kode hex untuk putih)
+  color: "#FFFFFF"
+
+  # Path ke file gambar logo Anda
+  image: assets/icon/logo_desa.png
+
+  # Aktifkan untuk Android dan iOS
+  android: true
+  ios: true
+
+  # (Opsional tapi disarankan) Konfigurasi khusus untuk Android 12+
+  # Ini akan menampilkan logo Anda dengan benar di splash screen Android versi baru
+  android_12:
+    image: assets/icon/logo_desa.png
+    color: "#FFFFFF"

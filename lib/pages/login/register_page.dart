@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'dart:io'; // Diperlukan untuk handle File
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart'; // Import paket image_picker
 
 import '../../core/config/app_config.dart';
-import '../../widgets/wave_clipper.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -22,34 +23,78 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _passwordConfirmationController = TextEditingController();
 
+  File? _ktpImageFile; // Variabel untuk menyimpan file KTP yang dipilih
+
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+
+  @override
+  void dispose() {
+    _nikController.dispose();
+    _namaLengkapController.dispose();
+    _nomorHpController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _passwordConfirmationController.dispose();
+    super.dispose();
+  }
+
+  // Fungsi untuk memilih gambar KTP
+  Future<void> _pickKtpImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _ktpImageFile = File(pickedFile.path);
+      });
+    }
+  }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    // Validasi tambahan untuk file KTP
+    if (_ktpImageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mohon unggah foto KTP Anda.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
 
-    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final response = await http.post(
+      // Menggunakan MultipartRequest untuk mengirim data form dan file
+      var request = http.MultipartRequest(
+        'POST',
         Uri.parse('${AppConfig.apiBaseUrl}/register'),
-        headers: {'Accept': 'application/json'},
-        body: {
-          'nik': _nikController.text,
-          'nama_lengkap': _namaLengkapController.text,
-          'nomor_hp': _nomorHpController.text,
-          'email': _emailController.text,
-          'password': _passwordController.text,
-          'password_confirmation': _passwordConfirmationController.text,
-        },
+      );
+      request.headers['Accept'] = 'application/json';
+
+      // Menambahkan field teks
+      request.fields['nik'] = _nikController.text;
+      request.fields['nama_lengkap'] = _namaLengkapController.text;
+      request.fields['nomor_hp'] = _nomorHpController.text;
+      request.fields['email'] = _emailController.text;
+      request.fields['password'] = _passwordController.text;
+      request.fields['password_confirmation'] = _passwordConfirmationController.text;
+
+      // Menambahkan file KTP
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'foto_ktp', // Nama field ini harus sesuai dengan yang diharapkan di backend Laravel
+          _ktpImageFile!.path,
+        ),
       );
 
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
       if (!mounted) return;
       final data = jsonDecode(response.body);
 
@@ -59,8 +104,7 @@ class _RegisterPageState extends State<RegisterPage> {
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
             title: const Text('Registrasi Berhasil'),
-            content: Text(data['message'] ??
-                'Akun Anda telah dibuat dan sedang menunggu verifikasi.'),
+            content: Text(data['message'] ?? 'Akun Anda telah dibuat dan sedang menunggu verifikasi.'),
             actions: [
               TextButton(
                 onPressed: () {
@@ -78,7 +122,8 @@ class _RegisterPageState extends State<RegisterPage> {
           errorMessage = (data['errors'] as Map).entries.first.value[0];
         }
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -99,160 +144,179 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-
     return Scaffold(
-      body: Stack(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 32),
+                _buildForm(),
+                const SizedBox(height: 32),
+                _buildFooter(context),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'Buat Akun Baru',
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Isi data diri Anda untuk memulai layanan',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFFF0F4F3),
-            ),
+          _buildTextField(
+            controller: _nikController,
+            label: 'NIK (16 Digit)',
+            icon: Icons.person_outline,
+            keyboardType: TextInputType.number,
           ),
-          ClipPath(
-            clipper: WaveClipper(),
-            child: Container(
-              width: screenSize.width,
-              height: screenSize.height * 0.3,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1E824C), Color(0xFF2ECC71)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _namaLengkapController,
+            label: 'Nama Lengkap (Sesuai KTP)',
+            icon: Icons.badge_outlined,
           ),
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                width: double.infinity,
-                child: Column(
-                  children: [
-                    Align(
-                      alignment: Alignment.topLeft,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: IconButton(
-                          icon:
-                              const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Buat Akun Baru',
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      'Isi data diri Anda dengan benar',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        color: Colors.white.withAlpha(230),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    Card(
-                      elevation: 8,
-                      shadowColor: Colors.black.withAlpha(128),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildTextField(
-                                controller: _nikController,
-                                label: 'NIK (16 Digit)',
-                                icon: Icons.person_outline,
-                                keyboardType: TextInputType.number,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _namaLengkapController,
-                                label: 'Nama Lengkap',
-                                icon: Icons.badge_outlined,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _nomorHpController,
-                                label: 'Nomor HP Aktif',
-                                icon: Icons.phone_android_outlined,
-                                keyboardType: TextInputType.phone,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _emailController,
-                                label: 'Alamat Email',
-                                icon: Icons.email_outlined,
-                                keyboardType: TextInputType.emailAddress,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildPasswordField(
-                                controller: _passwordController,
-                                label: 'Password',
-                                isVisible: _isPasswordVisible,
-                                onToggleVisibility: () {
-                                  setState(() =>
-                                      _isPasswordVisible = !_isPasswordVisible);
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              _buildPasswordField(
-                                controller: _passwordConfirmationController,
-                                label: 'Konfirmasi Password',
-                                isVisible: _isConfirmPasswordVisible,
-                                onToggleVisibility: () {
-                                  setState(() => _isConfirmPasswordVisible =
-                                      !_isConfirmPasswordVisible);
-                                },
-                                isConfirmation: true,
-                              ),
-                              const SizedBox(height: 24),
-                              _isLoading
-                                  ? const Center(
-                                      child: CircularProgressIndicator())
-                                  : ElevatedButton(
-                                      onPressed: _register,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green.shade600,
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 16),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'DAFTAR',
-                                        style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white),
-                                      ),
-                                    ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                  ],
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _nomorHpController,
+            label: 'Nomor HP Aktif',
+            icon: Icons.phone_android_outlined,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _emailController,
+            label: 'Alamat Email',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 16),
+          _buildPasswordField(
+            controller: _passwordController,
+            label: 'Password',
+            isVisible: _isPasswordVisible,
+            onToggleVisibility: () {
+              setState(() => _isPasswordVisible = !_isPasswordVisible);
+            },
+          ),
+          const SizedBox(height: 16),
+          _buildPasswordField(
+            controller: _passwordConfirmationController,
+            label: 'Konfirmasi Password',
+            isVisible: _isConfirmPasswordVisible,
+            onToggleVisibility: () {
+              setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible);
+            },
+            isConfirmation: true,
+          ),
+          const SizedBox(height: 24),
+          _buildKtpPicker(),
+          const SizedBox(height: 32),
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : ElevatedButton(
+                  onPressed: _register,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade800,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('DAFTAR SEKARANG', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
-              ),
-            ),
-          )
         ],
       ),
+    );
+  }
+  
+  Widget _buildKtpPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Unggah Foto KTP',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.black87),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 150,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: InkWell(
+            onTap: _pickKtpImage,
+            borderRadius: BorderRadius.circular(12),
+            child: _ktpImageFile == null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo_outlined, color: Colors.grey.shade500, size: 40),
+                      const SizedBox(height: 8),
+                      Text('Ketuk untuk memilih gambar', style: GoogleFonts.poppins(color: Colors.grey.shade600)),
+                    ],
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: Image.file(_ktpImageFile!, fit: BoxFit.cover),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text('Sudah memiliki akun? ', style: GoogleFonts.poppins(color: Colors.grey.shade700)),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text('Masuk di sini', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue.shade800)),
+        ),
+      ],
     );
   }
 

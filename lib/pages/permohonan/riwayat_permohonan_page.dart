@@ -1,5 +1,3 @@
-// Lokasi: lib/pages/permohonan/riwayat_page.dart
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -8,11 +6,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../core/config/app_config.dart';
-import 'detail_permohonan_page.dart'; // Pastikan Anda sudah membuat file ini
+import 'detail_permohonan_page.dart';
 
-// Model Riwayat (sudah diperbarui untuk menerima namaPemohon)
+class AppColors {
+  static final Color primaryColor = Colors.blue.shade800;
+  static final Color lightGrey = Colors.grey.shade200;
+  static final Color darkGrey = Colors.grey.shade800;
+  static final Color mediumGrey = Colors.grey.shade600;
+}
+
 class Riwayat {
   final int id;
   final String jenisSurat;
@@ -51,13 +56,10 @@ class RiwayatPermohonanPage extends StatefulWidget {
 
 class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
     with TickerProviderStateMixin {
-  // State untuk data
   List<Riwayat> _semuaRiwayat = [];
   List<Riwayat> _riwayatTersaring = [];
   bool _isLoading = true;
   String? _error;
-
-  // State untuk filter
   String? _filterJenisSurat;
   DateTimeRange? _filterTanggal;
   final List<String> _opsiJenisSurat = [
@@ -71,7 +73,6 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
     'SK Tidak Mampu',
     'SK Usaha',
   ];
-
   StreamSubscription? _fcmSubscription;
   late TabController _tabController;
 
@@ -110,8 +111,9 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
-      if (token == null)
+      if (token == null) {
         throw Exception('Sesi tidak valid. Silakan login ulang.');
+      }
 
       final response = await http.get(
         Uri.parse('${AppConfig.apiBaseUrl}/riwayat-semua-permohonan'),
@@ -178,18 +180,17 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
   }
 
   void _showFilterDialog() {
-    // Gunakan state sementara di dalam dialog agar perubahan tidak langsung diterapkan
     String? tempJenisSurat = _filterJenisSurat;
     DateTimeRange? tempTanggal = _filterTanggal;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        // StatefulBuilder diperlukan agar UI di dalam dialog bisa di-update
         return StatefulBuilder(
             builder: (BuildContext context, StateSetter setDialogState) {
           return Padding(
@@ -201,13 +202,21 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
               children: [
                 Text('Filter Riwayat',
                     style: GoogleFonts.poppins(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
+                        fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 24),
                 DropdownButtonFormField<String>(
                   value: tempJenisSurat,
-                  decoration: const InputDecoration(
-                      labelText: 'Jenis Surat', border: OutlineInputBorder()),
-                  hint: const Text('Semua Jenis Surat'),
+                  decoration: InputDecoration(
+                    labelText: 'Jenis Surat',
+                    hintText: 'Pilih jenis surat',
+                    prefixIcon:
+                        Icon(Icons.description_outlined, color: AppColors.mediumGrey),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
+                  ),
                   items: _opsiJenisSurat.map((String value) {
                     return DropdownMenuItem<String>(
                         value: value, child: Text(value));
@@ -215,30 +224,52 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
                   onChanged: (value) =>
                       setDialogState(() => tempJenisSurat = value),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 OutlinedButton.icon(
-                  icon: const Icon(Icons.calendar_today),
+                  icon: const Icon(Icons.calendar_today_outlined),
                   label: Text(tempTanggal == null
                       ? 'Pilih Rentang Tanggal'
-                      : '${DateFormat('d/M/y').format(tempTanggal!.start)} - ${DateFormat('d/M/y').format(tempTanggal!.end)}'),
+                      : '${DateFormat('d MMM y', 'id_ID').format(tempTanggal!.start)} - ${DateFormat('d MMM y', 'id_ID').format(tempTanggal!.end)}'),
+                  style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(color: AppColors.lightGrey)),
                   onPressed: () async {
                     final picked = await showDateRangePicker(
-                      context: context,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      initialDateRange: tempTanggal,
-                    );
+                        context: context,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                        initialDateRange: tempTanggal,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.light(
+                                primary: AppColors.primaryColor,
+                                onPrimary: Colors.white,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        });
                     if (picked != null) {
                       setDialogState(() => tempTanggal = picked);
                     }
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         child: const Text('Reset'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          foregroundColor: AppColors.mediumGrey,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
                         onPressed: () {
                           setDialogState(() {
                             tempJenisSurat = null;
@@ -251,9 +282,15 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green),
-                        child: const Text('Terapkan',
-                            style: TextStyle(color: Colors.white)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: AppColors.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text('Terapkan',
+                            style:
+                                GoogleFonts.poppins(fontWeight: FontWeight.bold)),
                         onPressed: () {
                           setState(() {
                             _filterJenisSurat = tempJenisSurat;
@@ -280,18 +317,19 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
       appBar: AppBar(
         title: Text('Riwayat Permohonan',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.primaryColor,
         foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
+            icon: const Icon(Icons.filter_list_rounded),
             onPressed: _showFilterDialog,
           )
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
+          indicatorColor: Colors.yellowAccent,
+          indicatorWeight: 3.5,
           labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold),
           unselectedLabelStyle: GoogleFonts.poppins(),
           tabs: const [
@@ -300,15 +338,16 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
           ],
         ),
       ),
+      backgroundColor: Colors.grey[100],
       body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      // Tampilan loading shimmer yang lebih baik
       return ListView.builder(
-        itemCount: 8,
+        padding: const EdgeInsets.all(16),
+        itemCount: 5,
         itemBuilder: (context, index) => const _ShimmerCard(),
       );
     }
@@ -339,7 +378,6 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
   }
 }
 
-// Widget untuk daftar riwayat
 class _RiwayatListView extends StatelessWidget {
   final List<Riwayat> riwayatList;
   final String emptyMessage;
@@ -354,23 +392,31 @@ class _RiwayatListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: onRefresh,
+      color: AppColors.primaryColor,
       child: riwayatList.isEmpty
           ? Center(
-              child: ListView(
-                // Dibungkus agar bisa di-refresh saat kosong
-                children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-                  Icon(Icons.folder_off_outlined,
-                      size: 80, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text(emptyMessage,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(color: Colors.grey[500])),
-                ],
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding:
+                      EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.2),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.inbox_outlined,
+                          size: 80, color: Colors.grey[350]),
+                      const SizedBox(height: 16),
+                      Text(emptyMessage,
+                          textAlign: TextAlign.center,
+                          style:
+                              GoogleFonts.poppins(color: AppColors.mediumGrey)),
+                    ],
+                  ),
+                ),
               ),
             )
           : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.all(16),
               itemCount: riwayatList.length,
               itemBuilder: (context, index) {
                 final riwayat = riwayatList[index];
@@ -381,74 +427,88 @@ class _RiwayatListView extends StatelessWidget {
   }
 }
 
-// Widget untuk kartu riwayat
 class _RiwayatCard extends StatelessWidget {
   final Riwayat riwayat;
   const _RiwayatCard({required this.riwayat});
 
   Widget _buildStatusChip(String status) {
-    Color chipColor;
-    String chipLabel;
-    IconData? chipIcon;
+    Color bgColor, fgColor;
+    IconData icon;
+
     switch (status) {
       case 'pending':
-        chipColor = Colors.orange.shade100;
-        chipLabel = 'Diajukan';
-        chipIcon = Icons.hourglass_top_rounded;
+        bgColor = Colors.orange.shade50;
+        fgColor = Colors.orange.shade800;
+        icon = Icons.hourglass_top_rounded;
         break;
       case 'diproses':
-        chipColor = Colors.blue.shade100;
-        chipLabel = 'Diproses';
-        chipIcon = Icons.sync;
+        bgColor = Colors.blue.shade50;
+        fgColor = Colors.blue.shade800;
+        icon = Icons.sync;
         break;
       case 'selesai':
-        chipColor = Colors.green.shade100;
-        chipLabel = 'Selesai';
-        chipIcon = Icons.check_circle;
+        bgColor = Colors.green.shade50;
+        fgColor = Colors.green.shade800;
+        icon = Icons.check_circle_rounded;
         break;
       case 'ditolak':
-        chipColor = Colors.red.shade100;
-        chipLabel = 'Ditolak';
-        chipIcon = Icons.cancel;
+        bgColor = Colors.red.shade50;
+        fgColor = Colors.red.shade800;
+        icon = Icons.cancel_rounded;
         break;
       default:
-        chipColor = Colors.grey.shade200;
-        chipLabel = 'Tidak Diketahui';
-        chipIcon = Icons.help_outline;
+        bgColor = Colors.grey.shade200;
+        fgColor = Colors.grey.shade800;
+        icon = Icons.help_outline_rounded;
     }
-    return Chip(
-      avatar: Icon(chipIcon,
-          size: 16,
-          color: chipColor.computeLuminance() > 0.5
-              ? Colors.black87
-              : Colors.black87),
-      label: Text(chipLabel,
-          style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: chipColor.computeLuminance() > 0.5
-                  ? Colors.black87
-                  : Colors.black87)),
-      backgroundColor: chipColor,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+
+    final label = status[0].toUpperCase() + status.substring(1);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration:
+          BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fgColor),
+          const SizedBox(width: 6),
+          Text(label,
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold, fontSize: 12, color: fgColor)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppColors.mediumGrey),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(text,
+                style: GoogleFonts.poppins(
+                    color: AppColors.mediumGrey, fontSize: 13))),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Menentukan apakah statusnya masih dalam proses untuk menampilkan estimasi
     final bool isInProcess =
         riwayat.status == 'pending' || riwayat.status == 'diproses';
 
     return Card(
-      elevation: 2,
-      shadowColor: Colors.grey.withAlpha(128),
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppColors.lightGrey),
+      ),
+      color: Colors.white,
       child: InkWell(
         onTap: () {
-          // Navigasi ke halaman detail
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -457,63 +517,37 @@ class _RiwayatCard extends StatelessWidget {
             ),
           );
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Bagian Judul dan Status
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(riwayat.jenisSurat,
-                            style: GoogleFonts.poppins(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text('Oleh: ${riwayat.namaPemohon}',
-                            style: GoogleFonts.poppins(
-                                fontSize: 13, color: Colors.grey.shade700)),
-                      ],
-                    ),
+                    child: Text(riwayat.jenisSurat,
+                        style: GoogleFonts.poppins(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.darkGrey)),
                   ),
+                  const SizedBox(width: 12),
                   _buildStatusChip(riwayat.status),
                 ],
               ),
-              const Divider(height: 24),
-
-              // Bagian Tanggal Pengajuan
-              Row(
-                children: [
-                  Icon(Icons.calendar_today,
-                      size: 14, color: Colors.grey.shade600),
-                  const SizedBox(width: 8),
-                  Text('Diajukan: ${riwayat.tanggal}',
-                      style: GoogleFonts.poppins(
-                          color: Colors.grey.shade700, fontSize: 13)),
-                ],
-              ),
-              const SizedBox(height: 6),
-
-              // [FITUR BARU] Menampilkan estimasi selesai HANYA jika status masih dalam proses
-              if (isInProcess)
-                Row(
-                  children: [
-                    Icon(Icons.timelapse,
-                        size: 14, color: Colors.grey.shade600),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Estimasi Selesai: ${riwayat.estimasiSelesai}',
-                      style: GoogleFonts.poppins(
-                          color: Colors.grey.shade700, fontSize: 13),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 12),
+              _buildInfoRow(Icons.person_outline, 'Oleh: ${riwayat.namaPemohon}'),
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                  Icons.calendar_today_outlined, 'Diajukan: ${riwayat.tanggal}'),
+              if (isInProcess && riwayat.estimasiSelesai != '-') ...[
+                const SizedBox(height: 8),
+                _buildInfoRow(Icons.timelapse_rounded,
+                    'Estimasi Selesai: ${riwayat.estimasiSelesai}'),
+              ],
             ],
           ),
         ),
@@ -522,19 +556,41 @@ class _RiwayatCard extends StatelessWidget {
   }
 }
 
-// [BARU] Widget untuk tampilan loading shimmer
 class _ShimmerCard extends StatelessWidget {
   const _ShimmerCard();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
       child: Container(
-        height: 100,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.black.withAlpha(128),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(width: 180, height: 20, color: Colors.white),
+                Container(
+                    width: 80,
+                    height: 24,
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20))),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(width: 150, height: 14, color: Colors.white),
+            const SizedBox(height: 8),
+            Container(width: 200, height: 14, color: Colors.white),
+          ],
         ),
       ),
     );

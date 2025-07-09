@@ -1,5 +1,3 @@
-// Lokasi: lib/pages/notifications/notification_page.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/app_config.dart';
 
-// Model untuk data notifikasi dari API
 class NotificationItem {
   final String id;
   final String title;
@@ -37,44 +34,62 @@ class NotificationItem {
 }
 
 class NotificationPage extends StatefulWidget {
-  const NotificationPage({super.key});
+  final List<NotificationItem> initialNotifications;
+  
+  const NotificationPage({
+    super.key,
+    required this.initialNotifications
+  });
 
   @override
   State<NotificationPage> createState() => _NotificationPageState();
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  late Future<Map<String, List<NotificationItem>>> _groupedNotificationsFuture;
+  late List<NotificationItem> _notificationItems; 
+  late Map<String, List<NotificationItem>> _groupedNotifications;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _groupedNotificationsFuture = _fetchAndGroupNotifications();
+    _notificationItems = widget.initialNotifications;
+    _groupedNotifications = _groupNotificationsByDate(_notificationItems);
   }
 
-  Future<Map<String, List<NotificationItem>>> _fetchAndGroupNotifications() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+  Future<void> _fetchNotifications() async {
+    setState(() { _isLoading = true; });
 
-    if (token == null) {
-      throw Exception('Sesi tidak valid. Silakan login ulang.');
-    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) {
+        throw Exception('Sesi tidak valid.');
+      }
 
-    // Menggunakan endpoint GET /notifikasi
-    final response = await http.get(
-      Uri.parse('${AppConfig.baseUrl}/api/notifikasi'), 
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+      final response = await http.get(
+        Uri.parse('${AppConfig.apiBaseUrl}/notifikasi'), 
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> body = jsonDecode(response.body);
-      final List<NotificationItem> items = body.map((item) => NotificationItem.fromJson(item)).toList();
-      return _groupNotificationsByDate(items);
-    } else {
-      throw Exception('Gagal memuat notifikasi.');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> body = data['data'] ?? [];
+        
+        setState(() {
+          _notificationItems = body.map((item) => NotificationItem.fromJson(item)).toList();
+          _groupedNotifications = _groupNotificationsByDate(_notificationItems);
+        });
+      } else {
+        throw Exception('Gagal memuat notifikasi.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
     }
   }
 
@@ -98,47 +113,35 @@ class _NotificationPageState extends State<NotificationPage> {
     }
     return grouped;
   }
-
-  // Implementasi lengkap dengan API call
+  
   Future<void> _markAsRead(NotificationItem item) async {
     if (item.isRead) return;
     
-    // Optimistic UI update
     setState(() {
       item.isRead = true;
     });
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
-    // Kirim request ke server di latar belakang
-    await http.put(
-      Uri.parse('${AppConfig.baseUrl}/api/notifikasi/baca/${item.id}'),
+    http.put(
+      Uri.parse('${AppConfig.apiBaseUrl}/notifikasi/baca/${item.id}'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
   }
 
-  // Implementasi lengkap dengan API call
   Future<void> _markAllAsRead() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     if (token == null) return;
     
     await http.put(
-      Uri.parse('${AppConfig.baseUrl}/api/notifikasi/baca-semua'),
+      Uri.parse('${AppConfig.apiBaseUrl}/notifikasi/baca-semua'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
-    // Muat ulang data setelah berhasil
-    _refresh();
+    await _fetchNotifications();
   }
   
-  // Fungsi untuk memuat ulang notifikasi (untuk pull-to-refresh)
-  Future<void> _refresh() async {
-    setState(() {
-      _groupedNotificationsFuture = _fetchAndGroupNotifications();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,60 +151,63 @@ class _NotificationPageState extends State<NotificationPage> {
         foregroundColor: Colors.black87,
         elevation: 1,
         actions: [
-          // PERBAIKAN UI: Menggunakan TextButton.icon
-          TextButton.icon(
-            onPressed: _markAllAsRead,
-            icon: const Icon(Icons.done_all, size: 20),
-            label: const Text('Tandai semua dibaca'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.green.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 16)
-            ),
-          )
+          if (_notificationItems.any((item) => !item.isRead))
+            TextButton.icon(
+              onPressed: _markAllAsRead,
+              icon: const Icon(Icons.done_all, size: 20),
+              label: const Text('Tandai semua dibaca'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue.shade700,
+                padding: const EdgeInsets.symmetric(horizontal: 16)
+              ),
+            )
         ],
       ),
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF5F8FA),
       body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: FutureBuilder<Map<String, List<NotificationItem>>>(
-          future: _groupedNotificationsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text('Error: ${snapshot.error}', textAlign: TextAlign.center,),
-              ));
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Center(
-                child: ListView( // Dibungkus agar bisa di-refresh
-                  children: [
-                     SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-                     Icon(Icons.notifications_off_outlined, size: 80, color: Colors.grey[300]),
-                     const SizedBox(height: 16),
-                     Text('Tidak ada notifikasi baru', style: GoogleFonts.poppins(color: Colors.grey[500])),
-                  ],
-                ),
-              );
-            }
-
-            final groupedNotifications = snapshot.data!;
-            final groupKeys = groupedNotifications.keys.toList();
-
-            return ListView.builder(
-              itemCount: groupKeys.length,
-              itemBuilder: (context, index) {
-                final String groupTitle = groupKeys[index];
-                final List<NotificationItem> items = groupedNotifications[groupTitle]!;
-                return _buildNotificationGroup(groupTitle, items);
-              },
-            );
-          },
-        ),
+        onRefresh: _fetchNotifications,
+        child: _isLoading && _notificationItems.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _notificationItems.isEmpty
+              ? _buildEmptyState()
+              : _buildNotificationList(),
       ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: ListView(
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+          Icon(Icons.notifications_active_outlined, size: 100, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Tidak Ada Notifikasi', 
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[600])
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Semua pemberitahuan penting dari desa\nakan muncul di sini.', 
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(color: Colors.grey[500])
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationList() {
+    final groupKeys = _groupedNotifications.keys.toList();
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: groupKeys.length,
+      itemBuilder: (context, index) {
+        final String groupTitle = groupKeys[index];
+        final List<NotificationItem> items = _groupedNotifications[groupTitle]!;
+        return _buildNotificationGroup(groupTitle, items);
+      },
     );
   }
 
@@ -210,18 +216,33 @@ class _NotificationPageState extends State<NotificationPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-          child: Text(title, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            title.toUpperCase(), 
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold, 
+              color: Colors.grey.shade600,
+              fontSize: 12,
+              letterSpacing: 0.8
+            )
+          ),
         ),
-        ListView.separated(
-          itemCount: items.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          separatorBuilder: (context, index) => const Divider(height: 1, indent: 72, endIndent: 16),
-          itemBuilder: (context, index) {
-            final item = items[index];
-            return _buildNotificationTile(item);
-          },
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          elevation: 2,
+          shadowColor: Colors.black.withOpacity(0.1),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          clipBehavior: Clip.antiAlias,
+          child: ListView.separated(
+            itemCount: items.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return _buildNotificationTile(item);
+            },
+          ),
         ),
       ],
     );
@@ -230,7 +251,7 @@ class _NotificationPageState extends State<NotificationPage> {
   Widget _buildNotificationTile(NotificationItem item) {
     final isUnread = !item.isRead;
     return Material(
-      color: isUnread ? Colors.green.withAlpha(20) : Colors.white,
+      color: isUnread ? Colors.blue.withOpacity(0.05) : Colors.transparent,
       child: InkWell(
         onTap: () => _markAsRead(item),
         child: Padding(
@@ -238,33 +259,29 @@ class _NotificationPageState extends State<NotificationPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: _getIconBackgroundColor(item),
-                    child: Icon(_getIconForItem(item), color: _getIconColor(item)),
-                  ),
-                  if (isUnread)
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        width: 10, height: 10,
-                        decoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
-                      ),
-                    ),
-                ],
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: _getIconBackgroundColor(item),
+                child: Icon(_getIconForItem(item), color: _getIconColor(item), size: 22),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.title, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15)),
+                    Text(
+                      item.title, 
+                      style: GoogleFonts.poppins(
+                        fontWeight: isUnread ? FontWeight.bold : FontWeight.w600, 
+                        fontSize: 15,
+                        color: isUnread ? Colors.black87 : Colors.black54
+                      )
+                    ),
                     const SizedBox(height: 4),
-                    Text(item.body, style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 14)),
+                    Text(
+                      item.body, 
+                      style: GoogleFonts.poppins(color: Colors.grey.shade700, fontSize: 14)
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       DateFormat('HH:mm', 'id_ID').format(item.date), 
@@ -273,6 +290,13 @@ class _NotificationPageState extends State<NotificationPage> {
                   ],
                 ),
               ),
+              if (isUnread) ...[
+                const SizedBox(width: 12),
+                Container(
+                  width: 10, height: 10,
+                  decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                ),
+              ]
             ],
           ),
         ),
@@ -280,27 +304,26 @@ class _NotificationPageState extends State<NotificationPage> {
     );
   }
 
-  // PERBAIKAN: Fungsi ini sekarang memeriksa judul notifikasi untuk menentukan ikon
   IconData _getIconForItem(NotificationItem item) {
     String titleLower = item.title.toLowerCase();
     if (titleLower.contains('selesai')) return Icons.check_circle_outline;
     if (titleLower.contains('ditolak')) return Icons.highlight_off_outlined;
-    if (titleLower.contains('diproses')) return Icons.hourglass_top_outlined;
+    if (titleLower.contains('diproses') || titleLower.contains('diverifikasi')) return Icons.hourglass_top_outlined;
     if (titleLower.contains('surat') || titleLower.contains('permohonan') || titleLower.contains('kk') || titleLower.contains('sk')) {
       return Icons.description_outlined;
     }
-    return Icons.campaign_outlined; // Default untuk pengumuman
+    return Icons.campaign_outlined;
   }
-
+  
   Color _getIconColor(NotificationItem item) {
     String titleLower = item.title.toLowerCase();
-     if (titleLower.contains('selesai')) return Colors.green.shade800;
+      if (titleLower.contains('selesai')) return Colors.green.shade800;
     if (titleLower.contains('ditolak')) return Colors.red.shade800;
-    if (titleLower.contains('diproses')) return Colors.blue.shade800;
+    if (titleLower.contains('diproses') || titleLower.contains('diverifikasi')) return Colors.blue.shade800;
     return Colors.orange.shade800;
   }
   
   Color _getIconBackgroundColor(NotificationItem item) {
-    return _getIconColor(item).withAlpha(40);
+    return _getIconColor(item).withOpacity(0.1);
   }
 }

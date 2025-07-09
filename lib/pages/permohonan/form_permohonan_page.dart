@@ -1,30 +1,37 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:getwidget/getwidget.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/app_config.dart';
+import 'dart:typed_data';
 
 class PlatformFileWrapper {
   final String? path;
   final Uint8List? bytes;
   final String name;
-
   PlatformFileWrapper({this.path, this.bytes, required this.name});
 }
 
 class FormPermohonanPage extends StatefulWidget {
   final String jenisSurat;
-  const FormPermohonanPage({super.key, required this.jenisSurat});
+  final String pageTitle;
+
+  const FormPermohonanPage({
+    super.key,
+    required this.jenisSurat,
+    required this.pageTitle,
+  });
 
   @override
   State<FormPermohonanPage> createState() => _FormPermohonanPageState();
 }
 
 class _FormPermohonanPageState extends State<FormPermohonanPage> {
-  String _pageTitle = '';
+  final _formKey = GlobalKey<FormState>();
   String _apiEndpoint = '';
   bool _isLoading = false;
 
@@ -41,48 +48,171 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
     _setupPageInfo();
   }
 
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    for (var controllerMap in _ahliWarisControllers) {
+      for (var controller in controllerMap.values) {
+        controller.dispose();
+      }
+    }
+    super.dispose();
+  }
+
   void _setupPageInfo() {
     switch (widget.jenisSurat) {
-      case 'kk_baru':
-        _pageTitle = 'Formulir KK Baru';
-        _apiEndpoint = '/permohonan-kk-baru';
-        break;
-      case 'kk_hilang':
-        _pageTitle = 'Formulir KK Hilang';
-        _apiEndpoint = '/permohonan-kk-hilang';
-        break;
-      case 'kk_perubahan':
-        _pageTitle = 'Formulir Perubahan Data KK';
-        _apiEndpoint = '/permohonan-kk-perubahan-data';
-        break;
-      case 'sk_ahli_waris':
-        _pageTitle = 'Formulir SK Ahli Waris';
-        _apiEndpoint = '/permohonan-sk-ahli-waris';
-        break;
-      case 'sk_tidak_mampu':
-        _pageTitle = 'Formulir SK Tidak Mampu';
-        _apiEndpoint = '/permohonan-sk-tidak-mampu';
-        break;
-      case 'sk_domisili':
-        _pageTitle = 'Formulir SK Domisili';
-        _apiEndpoint = '/permohonan-sk-domisili';
-        break;
-      case 'sk_kelahiran':
-        _pageTitle = 'Formulir SK Kelahiran';
-        _apiEndpoint = '/permohonan-sk-kelahiran';
-        break;
-      case 'sk_perkawinan':
-        _pageTitle = 'Formulir SK Perkawinan';
-        _apiEndpoint = '/permohonan-sk-perkawinan';
-        break;
-      case 'sk_usaha':
-        _pageTitle = 'Formulir SK Usaha';
-        _apiEndpoint = '/permohonan-sk-usaha';
-        break;
-      default:
-        _pageTitle = 'Formulir Tidak Ditemukan';
-        _apiEndpoint = '';
+      case 'kk_baru': _apiEndpoint = '/permohonan-kk-baru'; break;
+      case 'kk_hilang': _apiEndpoint = '/permohonan-kk-hilang'; break;
+      case 'kk_perubahan': _apiEndpoint = '/permohonan-kk-perubahan-data'; break;
+      case 'sk_ahli_waris': _apiEndpoint = '/permohonan-sk-ahli-waris'; break;
+      case 'sk_tidak_mampu': _apiEndpoint = '/permohonan-sk-tidak-mampu'; break;
+      case 'sk_domisili': _apiEndpoint = '/permohonan-sk-domisili'; break;
+      case 'sk_kelahiran': _apiEndpoint = '/permohonan-sk-kelahiran'; break;
+      case 'sk_perkawinan': _apiEndpoint = '/permohonan-sk-perkawinan'; break;
+      case 'sk_usaha': _apiEndpoint = '/permohonan-sk-usaha'; break;
+      default: _apiEndpoint = '';
     }
+  }
+
+  void _addAhliWarisField() {
+    setState(() {
+      _ahliWarisControllers.add({
+        'nama': TextEditingController(),
+        'nik': TextEditingController(),
+        'hubungan': TextEditingController(),
+        'alamat': TextEditingController(),
+      });
+    });
+  }
+
+  Future<void> _pickFile(String key) async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      withData: kIsWeb,
+    );
+    if (!mounted) return;
+    if (result != null && result.files.isNotEmpty) {
+      final file = result.files.single;
+      setState(() {
+        _selectedFiles[key] = PlatformFileWrapper(
+          path: kIsWeb ? null : file.path,
+          bytes: kIsWeb ? file.bytes : null,
+          name: file.name,
+        );
+      });
+    }
+  }
+
+  Future<void> _kirimPermohonan() async {
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap isi semua field yang wajib diisi.'), backgroundColor: Colors.red));
+      return;
+    }
+
+    setState(() { _isLoading = true; });
+    
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) {
+      setState(() { _isLoading = false; });
+      return;
+    }
+
+    var request = http.MultipartRequest('POST', Uri.parse('${AppConfig.apiBaseUrl}$_apiEndpoint'));
+    request.headers.addAll({'Accept': 'application/json', 'Authorization': 'Bearer $token'});
+
+    _controllers.forEach((key, controller) {
+      request.fields[key] = controller.text;
+    });
+
+    if (widget.jenisSurat == 'sk_ahli_waris') {
+      List<Map<String, String>> daftarAhliWaris = [];
+      for (var controllerMap in _ahliWarisControllers) {
+        daftarAhliWaris.add({
+          'nama': controllerMap['nama']!.text,
+          'nik': controllerMap['nik']!.text,
+          'hubungan': controllerMap['hubungan']!.text,
+          'alamat': controllerMap['alamat']!.text,
+        });
+      }
+      request.fields['daftar_ahli_waris'] = jsonEncode(daftarAhliWaris);
+    }
+    
+    for (var entry in _selectedFiles.entries) {
+      final String key = entry.key;
+      final PlatformFileWrapper? file = entry.value;
+      if (file != null) {
+        if (kIsWeb && file.bytes != null) {
+          request.files.add(http.MultipartFile.fromBytes(key, file.bytes!, filename: file.name));
+        } else if (!kIsWeb && file.path != null) {
+          request.files.add(await http.MultipartFile.fromPath(key, file.path!));
+        }
+      }
+    }
+
+    try {
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      if (!mounted) return;
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permohonan berhasil diajukan!'), backgroundColor: Colors.green));
+        Navigator.of(context).pop();
+      } else {
+        final errors = jsonDecode(responseBody);
+        String errorMessage = errors['message'] ?? 'Terjadi kesalahan.';
+        showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text('Gagal Mengajukan'), content: Text(errorMessage), actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK'))]));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.pageTitle, style: GoogleFonts.poppins()),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 1,
+      ),
+      backgroundColor: const Color(0xFFF5F8FA),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ..._buildFormWidgets(),
+              const SizedBox(height: 32),
+              _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ElevatedButton.icon(
+                    icon: const Icon(Icons.send_rounded),
+                    onPressed: _kirimPermohonan,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade800,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    label: const Text("AJUKAN PERMOHONAN"),
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   List<Widget> _buildFormWidgets() {
@@ -128,7 +258,17 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
           _buildTextField('alamat_pewaris', 'Alamat Terakhir Pewaris'),
           _buildSectionHeader('Daftar Ahli Waris'),
           ..._buildAhliWarisFields(),
-          GFButton(onPressed: _addAhliWarisField, text: "Tambah Ahli Waris", type: GFButtonType.outline, icon: const Icon(Icons.add)),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text("Tambah Ahli Waris"),
+            onPressed: _addAhliWarisField,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey.shade200,
+              foregroundColor: Colors.black87,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
           _buildSectionHeader('Lampiran Dokumen'),
           _buildFilePickerField('file_ktp_pemohon', 'File KTP Pemohon (yang mengajukan)'),
           _buildFilePickerField('file_kk_pemohon', 'File KK Pemohon (yang mengajukan)'),
@@ -268,111 +408,11 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
         return [const Text('Jenis surat tidak valid.')];
     }
   }
-
-  void _addAhliWarisField() {
-    setState(() {
-      _ahliWarisControllers.add({
-        'nama': TextEditingController(),
-        'nik': TextEditingController(),
-        'hubungan': TextEditingController(),
-        'alamat': TextEditingController(),
-      });
-    });
-  }
-
-  Future<void> _pickFile(String key) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
-      withData: true,
-    );
-    if (!mounted) return;
-    if (result != null && result.files.isNotEmpty) {
-      final file = result.files.single;
-      setState(() {
-        if (kIsWeb) {
-          _selectedFiles[key] = PlatformFileWrapper(bytes: file.bytes, name: file.name);
-        } else {
-          _selectedFiles[key] = PlatformFileWrapper(path: file.path!, name: file.name);
-        }
-      });
-    }
-  }
-
-  Future<void> _kirimPermohonan() async {
-    setState(() {
-      _isLoading = true;
-    });
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    if (!mounted) return;
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error: Tidak terautentikasi.')));
-      setState(() {
-        _isLoading = false;
-      });
-      return;
-    }
-    var request = http.MultipartRequest('POST', Uri.parse('${AppConfig.apiBaseUrl}$_apiEndpoint'));
-    request.headers.addAll({
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    });
-    _controllers.forEach((key, controller) {
-      request.fields[key] = controller.text;
-    });
-    for (int i = 0; i < _ahliWarisControllers.length; i++) {
-      _ahliWarisControllers[i].forEach((key, controller) {
-        request.fields['daftar_ahli_waris[$i][$key]'] = controller.text;
-      });
-    }
-    for (var entry in _selectedFiles.entries) {
-      final String key = entry.key;
-      final PlatformFileWrapper? file = entry.value;
-      if (file != null) {
-        if (kIsWeb) {
-          if (file.bytes != null) {
-            request.files.add(http.MultipartFile.fromBytes(key, file.bytes!, filename: file.name));
-          }
-        } else {
-          if (file.path != null) {
-            request.files.add(await http.MultipartFile.fromPath(key, file.path!));
-          }
-        }
-      }
-    }
-    try {
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-      if (!mounted) return;
-      if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Permohonan berhasil diajukan!'), backgroundColor: Colors.green));
-        Navigator.of(context).pop();
-      } else {
-        final errors = jsonDecode(responseBody);
-        String errorMessage = errors['message'] ?? 'Terjadi kesalahan validasi.';
-        if (errors['errors'] != null) {
-          final errorDetails = (errors['errors'] as Map).entries.map((e) => '- ${e.value[0]}').join('\n');
-          errorMessage = '$errorMessage\n$errorDetails';
-        }
-        showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text('Gagal Mengajukan'), content: Text(errorMessage), actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK'))]));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error jaringan: ${e.toString()}'), backgroundColor: Colors.red));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
+  
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(top: 24.0, bottom: 8.0),
-      child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+      padding: const EdgeInsets.only(top: 24.0, bottom: 8.0, left: 4.0),
+      child: Text(title, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
     );
   }
 
@@ -385,10 +425,13 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
         maxLines: maxLines,
         keyboardType: keyboardType,
         decoration: InputDecoration(
-          labelText: '$label ${isRequired ? '*' : '(Opsional)'}',
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          labelText: label,
+          hintText: 'Masukkan $label...',
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
           fillColor: Colors.white,
+          suffix: isRequired ? null : Text('(Opsional)', style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
         ),
         validator: (value) {
           if (isRequired && (value == null || value.isEmpty)) {
@@ -406,22 +449,41 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label ${isRequired ? '*' : '(Opsional)'}', style: const TextStyle(fontSize: 16)),
+          Text(
+            '$label ${isRequired ? '' : '(Opsional)'}',
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+          ),
           const SizedBox(height: 8),
-          GFListTile(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            margin: EdgeInsets.zero,
-            color: Colors.grey.shade200,
-            radius: 8,
-            title: Text(
-              _selectedFiles[key]?.name ?? 'Belum ada file dipilih',
-              style: TextStyle(color: _selectedFiles[key] != null ? Colors.black87 : Colors.grey.shade600),
-              overflow: TextOverflow.ellipsis,
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
             ),
-            icon: GFButton(
-              onPressed: () => _pickFile(key),
-              text: 'Pilih File',
-              type: GFButtonType.outline,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _pickFile(key),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.attach_file, color: Colors.grey.shade600),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _selectedFiles[key]?.name ?? 'Pilih file (PDF, JPG, PNG)...',
+                          style: GoogleFonts.poppins(color: _selectedFiles[key] != null ? Colors.black87 : Colors.grey.shade600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (_selectedFiles[key] != null)
+                        Icon(Icons.check_circle, color: Colors.green.shade600),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -434,13 +496,26 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
     for (int i = 0; i < _ahliWarisControllers.length; i++) {
       fields.add(
         Card(
+          elevation: 2,
           margin: const EdgeInsets.symmetric(vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Data Ahli Waris ${i + 1}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Data Ahli Waris ${i + 1}", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                    if (i > 0)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => setState(() => _ahliWarisControllers.removeAt(i)),
+                      ),
+                  ],
+                ),
+                const Divider(),
                 _buildTextField('ahli_waris_${i}_nama', 'Nama Lengkap', controller: _ahliWarisControllers[i]['nama']!),
                 _buildTextField('ahli_waris_${i}_nik', 'NIK', controller: _ahliWarisControllers[i]['nik']!, keyboardType: TextInputType.number),
                 _buildTextField('ahli_waris_${i}_hubungan', 'Hubungan Keluarga', controller: _ahliWarisControllers[i]['hubungan']!),
@@ -452,30 +527,5 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
       );
     }
     return fields;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(_pageTitle)),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ..._buildFormWidgets(),
-                  const SizedBox(height: 30),
-                  GFButton(
-                    onPressed: _kirimPermohonan,
-                    text: "AJUKAN PERMOHONAN",
-                    size: GFSize.LARGE,
-                    blockButton: true,
-                  ),
-                ],
-              ),
-            ),
-    );
   }
 }

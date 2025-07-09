@@ -6,9 +6,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart'; 
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_config.dart';
+
+// Definisi warna tema untuk konsistensi
+class AppColors {
+  static final Color primaryColor = Colors.blue.shade800;
+  static final Color lightGrey = Colors.grey.shade200;
+  static final Color darkGrey = Colors.grey.shade800;
+  static final Color mediumGrey = Colors.grey.shade600;
+}
 
 class DetailPermohonanPage extends StatefulWidget {
   final int permohonanId;
@@ -33,15 +41,13 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
     _detailFuture = _fetchDetail();
   }
 
-  // Fungsi untuk mengubah nama jenis surat menjadi format slug URL
   String _getSlugFromJenisSurat(String jenisSurat) {
     return jenisSurat
         .toLowerCase()
         .replaceAll(' ', '-')
-        .replaceAll(RegExp(r'[^a-z0-9-]'), ''); // Membersihkan karakter invalid
+        .replaceAll(RegExp(r'[^a-z0-9-]'), '');
   }
 
-  // Fungsi untuk mengambil data detail dari API Laravel
   Future<Map<String, dynamic>> _fetchDetail() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -58,12 +64,10 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-  
       throw Exception('Gagal memuat detail permohonan.');
     }
   }
 
-  // Fungsi untuk membuka URL file di browser eksternal
   Future<void> _launchFileUrl(String filePath) async {
     final fullUrl = Uri.parse('${AppConfig.baseUrl}/storage/$filePath');
     if (!await launchUrl(fullUrl, mode: LaunchMode.externalApplication)) {
@@ -76,48 +80,51 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Detail Permohonan', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
+        backgroundColor: AppColors.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0, // Desain flat modern
       ),
       backgroundColor: Colors.grey[100],
       body: FutureBuilder<Map<String, dynamic>>(
         future: _detailFuture,
         builder: (context, snapshot) {
-          // Tampilan saat data sedang dimuat
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: AppColors.primaryColor));
           }
-          // Tampilan jika terjadi error
           if (snapshot.hasError) {
             return Center(child: Padding(padding: const EdgeInsets.all(20), child: Text('Error: ${snapshot.error}', textAlign: TextAlign.center)));
           }
-          // Tampilan jika tidak ada data
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text('Tidak ada data detail.'));
           }
 
-          // Jika data berhasil dimuat
           final data = snapshot.data!;
           final pemohon = data['masyarakat'] as Map<String, dynamic>? ?? {};
 
           final lampiranFields = {
-            'File Kartu Keluarga': data['file_kk'],
-            'File KTP Pemohon': data['file_ktp'],
-            'Surat Pengantar RT/RW': data['surat_pengantar_rt_rw'],
-            'Dokumen Pendukung': data['surat_keterangan_pendukung'],
-            // Tambahkan key file lain dari JSON Anda jika ada
+            'File Kartu Keluarga': data['file_kk'], 'File KTP Pemohon': data['file_ktp'],
+            'Surat Pengantar RT/RW': data['surat_pengantar_rt_rw'], 'Dokumen Pendukung': data['surat_keterangan_pendukung'],
+            'Surat Kehilangan Kepolisian': data['surat_keterangan_hilang_kepolisian'], 'Buku Nikah / Akta Cerai': data['buku_nikah_akta_cerai'],
+            'Surat Pindah Datang': data['surat_pindah_datang'], 'Ijazah Terakhir': data['ijazah_terakhir'],
+            'KTP Pemohon (Pengaju)': data['file_ktp_pemohon'], 'KK Pemohon (Pengaju)': data['file_kk_pemohon'],
+            'KTP Ahli Waris': data['file_ktp_ahli_waris'], 'KK Ahli Waris': data['file_kk_ahli_waris'],
+            'Surat Kematian Pewaris': data['surat_keterangan_kematian'], 'Surat Nikah Orang Tua': data['surat_nikah_orangtua'],
+            'Surat Kelahiran dari Bidan/RS': data['surat_keterangan_kelahiran'], 'KTP Yang Meninggal': data['file_ktp_yang_meninggal'],
+            'KTP Pelapor': data['file_ktp_pelapor'], 'KTP Mempelai': data['file_ktp_mempelai'],
+            'Kartu Imunisasi Catin': data['kartu_imunisasi_catin'], 'Sertifikat Elsimil': data['sertifikat_elsimil'],
+            'Akta Perceraian': data['akta_penceraian'], 'File Pendukung Lainnya': data['file_pendukung_lain'],
           };
-          
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStatusCard(data['status'], data['catatan_penolakan'], data['tanggal_selesai_proses']),
-                const SizedBox(height: 20),
-                
+                const SizedBox(height: 24),
+
                 _buildSectionTitle('Informasi Permohonan', Icons.description_outlined),
+                const SizedBox(height: 8),
                 _buildDetailCard(
                   children: [
                     _buildDetailRow('Jenis Surat', widget.jenisSurat),
@@ -126,9 +133,10 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
                       _buildDetailRow('Catatan Anda', data['catatan_pemohon']),
                   ],
                 ),
-                const SizedBox(height: 20),
-                
+                const SizedBox(height: 24),
+
                 _buildSectionTitle('Informasi Pemohon', Icons.person_outline),
+                const SizedBox(height: 8),
                 _buildDetailCard(
                   children: [
                     _buildDetailRow('Nama Lengkap', pemohon['nama_lengkap'] ?? '-'),
@@ -137,18 +145,13 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
                     _buildDetailRow('Alamat', pemohon['alamat_lengkap'] ?? '-'),
                   ],
                 ),
-                const SizedBox(height: 20),
-
-                _buildSectionTitle('Lampiran Anda', Icons.attach_file),
-                _buildDetailCard(
-                  children: lampiranFields.entries
-                    .where((entry) => entry.value != null && entry.value.toString().isNotEmpty)
-                    .map((entry) => _buildLampiranTile(entry.key, entry.value))
-                    .toList(),
-                ),
                 const SizedBox(height: 24),
+                
+                _buildSectionTitle('Lampiran Anda', Icons.attach_file_outlined),
+                const SizedBox(height: 8),
+                _buildLampiranCard(lampiranFields),
+                const SizedBox(height: 32),
 
-                // Tombol download akan muncul di sini jika syarat terpenuhi
                 if (data['status'] == 'selesai' && data['file_hasil_akhir'] != null)
                   _buildDownloadButton(data['file_hasil_akhir']),
               ],
@@ -159,112 +162,162 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
     );
   }
 
-  // --- WIDGET-WIDGET PEMBANTU UNTUK UI YANG LEBIH BAIK ---
+  // --- WIDGET-WIDGET PEMBANTU DENGAN GAYA UI BARU ---
 
   Widget _buildSectionTitle(String title, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey.shade600, size: 20),
-          const SizedBox(width: 8),
-          Text(title, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade800)),
-        ],
-      ),
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.primaryColor, size: 22),
+        const SizedBox(width: 10),
+        Text(title, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.darkGrey)),
+      ],
     );
   }
 
   Widget _buildDetailCard({required List<Widget> children}) {
-    // Jika tidak ada children, jangan tampilkan kartu
     if (children.isEmpty) return const SizedBox.shrink();
-    
+
     return Card(
       elevation: 0,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200)
+        side: BorderSide(color: AppColors.lightGrey),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(children: children),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          children: List.generate(children.length, (index) {
+            return Column(
+              children: [
+                children[index],
+                if (index < children.length - 1) const Divider(height: 1, color: Color(0xFFEEEEEE)),
+              ],
+            );
+          }),
+        ),
       ),
     );
   }
 
   Widget _buildDetailRow(String label, String? value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.poppins(color: Colors.grey.shade600)),
-          const SizedBox(height: 4),
-          Text(value ?? '-', style: GoogleFonts.poppins(fontSize: 16, color: Colors.black87)),
+          Expanded(
+            flex: 2,
+            child: Text(label, style: GoogleFonts.poppins(color: AppColors.mediumGrey)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value ?? '-',
+              style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
+              textAlign: TextAlign.end,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildLampiranCard(Map<String, dynamic> lampiranFields) {
+    final validLampiran = lampiranFields.entries
+        .where((entry) => entry.value != null && entry.value.toString().isNotEmpty)
+        .toList();
+
+    if (validLampiran.isEmpty) {
+        return _buildDetailCard(children: [Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Center(child: Text("Tidak ada lampiran.", style: GoogleFonts.poppins(color: AppColors.mediumGrey))))]
+        );
+    }
+    
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: AppColors.lightGrey)),
+      child: Column(
+        children: validLampiran.asMap().entries.map((entry) {
+          int idx = entry.key;
+          var lampiran = entry.value;
+          return Column(
+            children: [
+              _buildLampiranTile(lampiran.key, lampiran.value),
+              if (idx < validLampiran.length - 1)
+                const Divider(height: 1, indent: 16, endIndent: 16),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
 
   Widget _buildLampiranTile(String label, String filePath) {
-    return Column(
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.insert_drive_file_outlined, color: Colors.black54),
-          title: Text(label, style: GoogleFonts.poppins()),
-          trailing: const Icon(Icons.visibility_outlined, color: Colors.blue),
-          onTap: () async {
-            try {
-              await _launchFileUrl(filePath);
-            } catch (e) {
-              if(mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString()))
-                );
-              }
-            }
-          },
-        ),
-        const Divider(height: 1),
-      ],
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Icon(Icons.insert_drive_file_outlined, color: AppColors.primaryColor),
+      title: Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+      onTap: () async {
+        try {
+          await _launchFileUrl(filePath);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.toString())),
+            );
+          }
+        }
+      },
     );
   }
-  
+
   Widget _buildStatusCard(String? status, String? catatanPenolakan, String? tanggalSelesai) {
     String statusText;
     String statusSubtitle;
-    Color cardColor;
+    Color cardColor, iconColor;
     IconData statusIcon;
 
     switch (status) {
       case 'pending':
         statusText = 'Berhasil Diajukan';
-        statusSubtitle = 'Permohonan Anda sedang menunggu verifikasi oleh petugas.';
+        statusSubtitle = 'Menunggu verifikasi oleh petugas.';
         cardColor = Colors.blue.shade50;
+        iconColor = Colors.blue.shade700;
         statusIcon = Icons.hourglass_top_rounded;
         break;
       case 'diproses':
         statusText = 'Sedang Diproses';
-        statusSubtitle = 'Permohonan Anda sedang dikerjakan oleh petugas.';
+        statusSubtitle = 'Permohonan Anda sedang dikerjakan.';
         cardColor = Colors.orange.shade50;
+        iconColor = Colors.orange.shade700;
         statusIcon = Icons.sync;
         break;
       case 'selesai':
         statusText = 'Permohonan Selesai';
-        statusSubtitle = 'Selesai pada: ${tanggalSelesai != null ? DateFormat('d MMMM yyyy', 'id_ID').format(DateTime.parse(tanggalSelesai)) : '-'}';
+        statusSubtitle = 'Selesai pada ${tanggalSelesai != null ? DateFormat('d MMMM yyyy', 'id_ID').format(DateTime.parse(tanggalSelesai)) : '-'}';
         cardColor = Colors.green.shade50;
+        iconColor = Colors.green.shade700;
         statusIcon = Icons.check_circle_rounded;
         break;
       case 'ditolak':
         statusText = 'Permohonan Ditolak';
-        statusSubtitle = 'Ditolak pada: ${tanggalSelesai != null ? DateFormat('d MMMM yyyy', 'id_ID').format(DateTime.parse(tanggalSelesai)) : '-'}';
+        statusSubtitle = 'Ditolak pada ${tanggalSelesai != null ? DateFormat('d MMMM yyyy', 'id_ID').format(DateTime.parse(tanggalSelesai)) : '-'}';
         cardColor = Colors.red.shade50;
+        iconColor = Colors.red.shade700;
         statusIcon = Icons.cancel_rounded;
         break;
       default:
         statusText = 'Status Tidak Diketahui';
         statusSubtitle = 'Silakan hubungi petugas.';
         cardColor = Colors.grey.shade200;
+        iconColor = AppColors.mediumGrey;
         statusIcon = Icons.help_outline_rounded;
     }
 
@@ -275,19 +328,19 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(statusIcon, size: 32, color: Colors.black.withAlpha(128)),
+                Icon(statusIcon, size: 36, color: iconColor),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(statusText, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 2),
-                      Text(statusSubtitle, style: GoogleFonts.poppins(color: Colors.black54)),
+                      Text(statusText, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.darkGrey)),
+                      const SizedBox(height: 4),
+                      Text(statusSubtitle, style: GoogleFonts.poppins(color: AppColors.mediumGrey, height: 1.5)),
                     ],
                   ),
                 ),
@@ -297,17 +350,17 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(top: 12),
+                margin: const EdgeInsets.only(top: 16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withAlpha(128),
-                  borderRadius: BorderRadius.circular(8)
+                  color: Colors.red.shade100.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Alasan Penolakan:", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                    Text("Alasan Penolakan:", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.red.shade900)),
                     const SizedBox(height: 4),
-                    Text(catatanPenolakan, style: GoogleFonts.poppins()),
+                    Text(catatanPenolakan, style: GoogleFonts.poppins(color: Colors.red.shade900)),
                   ],
                 ),
               ),
@@ -321,22 +374,23 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        icon: const Icon(Icons.download_for_offline_outlined),
-        label: const Text('Unduh Berkas Hasil Akhir'),
+        icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
+        label: Text('Unduh Berkas Hasil Akhir', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
         style: ElevatedButton.styleFrom(
-          foregroundColor: Colors.white, 
-          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          backgroundColor: AppColors.primaryColor,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          textStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 2,
+          shadowColor: AppColors.primaryColor.withOpacity(0.4)
         ),
         onPressed: () async {
           try {
             await _launchFileUrl(filePath);
           } catch (e) {
-            if(mounted) {
+            if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Gagal membuka file: ${e.toString()}'))
+                SnackBar(content: Text('Gagal membuka file: ${e.toString()}')),
               );
             }
           }

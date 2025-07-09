@@ -1,5 +1,3 @@
-// Lokasi: lib/pages/profile/change_password_page.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +5,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_config.dart';
+
+class AppColors {
+  static final Color primaryColor = Colors.blue.shade800;
+  static final Color lightGrey = Colors.grey.shade200;
+  static final Color darkGrey = Colors.grey.shade800;
+  static final Color mediumGrey = Colors.grey.shade600;
+}
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
@@ -20,21 +25,28 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _isLoading = false;
+  bool _isCurrentPasswordObscured = true;
+  bool _isNewPasswordObscured = true;
+  bool _isConfirmPasswordObscured = true;
 
   Future<void> _submitChangePassword() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() { _isLoading = true; });
+    setState(() {
+      _isLoading = true;
+    });
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
     if (!mounted || token == null) {
-      setState(() { _isLoading = false; });
+      setState(() {
+        _isLoading = false;
+      });
       return;
     }
 
@@ -51,14 +63,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           'new_password_confirmation': _confirmPasswordController.text,
         },
       );
-      
+
       if (!mounted) return;
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? 'Password berhasil diubah!'), backgroundColor: Colors.green),
+          SnackBar(
+              content: Text(data['message'] ?? 'Password berhasil diubah!'),
+              backgroundColor: Colors.green),
         );
         Navigator.of(context).pop();
       } else {
@@ -73,10 +87,12 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Terjadi error koneksi.'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('Terjadi error koneksi.'),
+            backgroundColor: Colors.red),
       );
     } finally {
-      if(mounted) setState(() { _isLoading = false; });
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -84,8 +100,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Ubah Kata Sandi', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.green,
+        title: Text('Ubah Kata Sandi',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        backgroundColor: AppColors.primaryColor,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -95,22 +112,49 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildPasswordField(_currentPasswordController, 'Password Saat Ini'),
+              _buildPasswordField(
+                controller: _currentPasswordController,
+                label: 'Password Saat Ini',
+                isObscured: _isCurrentPasswordObscured,
+                toggleObscure: () {
+                  setState(() => _isCurrentPasswordObscured = !_isCurrentPasswordObscured);
+                },
+              ),
               const SizedBox(height: 16),
-              _buildPasswordField(_newPasswordController, 'Password Baru'),
+              _buildPasswordField(
+                controller: _newPasswordController,
+                label: 'Password Baru',
+                isObscured: _isNewPasswordObscured,
+                toggleObscure: () {
+                  setState(() => _isNewPasswordObscured = !_isNewPasswordObscured);
+                },
+              ),
               const SizedBox(height: 16),
-              _buildPasswordField(_confirmPasswordController, 'Konfirmasi Password Baru', isConfirmation: true),
+              _buildPasswordField(
+                controller: _confirmPasswordController,
+                label: 'Konfirmasi Password Baru',
+                isObscured: _isConfirmPasswordObscured,
+                isConfirmation: true,
+                toggleObscure: () {
+                  setState(() => _isConfirmPasswordObscured = !_isConfirmPasswordObscured);
+                },
+              ),
               const SizedBox(height: 32),
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
                       onPressed: _submitChangePassword,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade700,
+                        backgroundColor: AppColors.primaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text('SIMPAN PASSWORD BARU', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white)),
+                      child: Text('SIMPAN PASSWORD BARU',
+                          style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 16)),
                     ),
             ],
           ),
@@ -119,23 +163,38 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     );
   }
 
-  Widget _buildPasswordField(TextEditingController controller, String label, {bool isConfirmation = false}) {
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required bool isObscured,
+    required VoidCallback toggleObscure,
+    bool isConfirmation = false,
+  }) {
     return TextFormField(
       controller: controller,
-      obscureText: true,
+      obscureText: isObscured,
+      style: GoogleFonts.poppins(),
       decoration: InputDecoration(
         labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(Icons.lock_outline, color: AppColors.mediumGrey),
+        suffixIcon: IconButton(
+          icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility,
+              color: AppColors.mediumGrey),
+          onPressed: toggleObscure,
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.lightGrey)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.lightGrey)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primaryColor)),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return '$label tidak boleh kosong.';
+          return 'Field ini tidak boleh kosong';
         }
         if (!isConfirmation && value.length < 8) {
-          return 'Password baru minimal 8 karakter.';
+          return 'Password minimal harus 8 karakter';
         }
         if (isConfirmation && value != _newPasswordController.text) {
-          return 'Konfirmasi password tidak cocok.';
+          return 'Konfirmasi password tidak cocok';
         }
         return null;
       },
