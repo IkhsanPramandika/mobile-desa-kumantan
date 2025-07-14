@@ -25,8 +25,8 @@ class NotificationItem {
     final data = json['data'] ?? {};
     return NotificationItem(
       id: json['id'] ?? '',
-      title: data['title'] ?? 'Tanpa Judul',
-      body: data['message'] ?? 'Tidak ada isi.',
+      title: data['judul'] ?? 'Tanpa Judul',
+      body: data['pesan'] ?? 'Tidak ada isi.',
       date: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
       isRead: json['read_at'] != null,
     );
@@ -169,8 +169,8 @@ class _NotificationPageState extends State<NotificationPage> {
         child: _isLoading && _notificationItems.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : _notificationItems.isEmpty
-              ? _buildEmptyState()
-              : _buildNotificationList(),
+            ? _buildEmptyState()
+            : _buildNotificationList(),
       ),
     );
   }
@@ -304,23 +304,27 @@ class _NotificationPageState extends State<NotificationPage> {
     );
   }
 
+  // [PERBAIKAN] Logika ikon dan warna disesuaikan dengan judul notifikasi yang baru
   IconData _getIconForItem(NotificationItem item) {
     String titleLower = item.title.toLowerCase();
     if (titleLower.contains('selesai')) return Icons.check_circle_outline;
     if (titleLower.contains('ditolak')) return Icons.highlight_off_outlined;
-    if (titleLower.contains('diproses') || titleLower.contains('diverifikasi')) return Icons.hourglass_top_outlined;
-    if (titleLower.contains('surat') || titleLower.contains('permohonan') || titleLower.contains('kk') || titleLower.contains('sk')) {
-      return Icons.description_outlined;
-    }
-    return Icons.campaign_outlined;
+    if (titleLower.contains('diproses')) return Icons.hourglass_top_outlined;
+    if (titleLower.contains('diterima')) return Icons.thumb_up_alt_outlined;
+    if (titleLower.contains('diajukan')) return Icons.send_outlined;
+    if (titleLower.contains('pengumuman')) return Icons.campaign_outlined;
+    return Icons.notifications_outlined; // Ikon default
   }
   
   Color _getIconColor(NotificationItem item) {
     String titleLower = item.title.toLowerCase();
-      if (titleLower.contains('selesai')) return Colors.green.shade800;
+    if (titleLower.contains('selesai')) return Colors.green.shade800;
     if (titleLower.contains('ditolak')) return Colors.red.shade800;
-    if (titleLower.contains('diproses') || titleLower.contains('diverifikasi')) return Colors.blue.shade800;
-    return Colors.orange.shade800;
+    if (titleLower.contains('diproses')) return Colors.blue.shade800;
+    if (titleLower.contains('diterima')) return Colors.teal.shade800;
+    if (titleLower.contains('diajukan')) return Colors.purple.shade800;
+    if (titleLower.contains('pengumuman')) return Colors.orange.shade800;
+    return Colors.grey.shade700; // Warna default
   }
   
   Color _getIconBackgroundColor(NotificationItem item) {

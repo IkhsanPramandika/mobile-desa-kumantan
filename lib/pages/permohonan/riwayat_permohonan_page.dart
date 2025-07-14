@@ -10,6 +10,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../core/config/app_config.dart';
 import 'detail_permohonan_page.dart';
+import 'form_permohonan_page.dart';
 
 class AppColors {
   static final Color primaryColor = Colors.blue.shade800;
@@ -21,28 +22,34 @@ class AppColors {
 class Riwayat {
   final int id;
   final String jenisSurat;
+  final String jenisSuratSlug;
   final String tanggal;
   final String status;
   final String namaPemohon;
   final String estimasiSelesai;
+  final Map<String, dynamic> fullData;
 
   Riwayat({
     required this.id,
     required this.jenisSurat,
+    required this.jenisSuratSlug,
     required this.tanggal,
     required this.status,
     required this.namaPemohon,
     required this.estimasiSelesai,
+    required this.fullData,
   });
 
   factory Riwayat.fromJson(Map<String, dynamic> json) {
     return Riwayat(
       id: json['id'] ?? 0,
       jenisSurat: json['jenis_surat'] ?? 'Permohonan Tidak Diketahui',
+      jenisSuratSlug: json['jenis_surat_slug'] ?? '',
       tanggal: json['tanggal'] ?? '-',
       status: json['status'] ?? 'unknown',
       namaPemohon: json['nama_pemohon'] ?? 'Warga',
       estimasiSelesai: json['estimasi_selesai'] ?? '-',
+      fullData: json,
     );
   }
 }
@@ -79,7 +86,7 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _fetchRiwayat();
     _setupFcmListener();
   }
@@ -116,12 +123,16 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
       }
 
       final response = await http.get(
-        Uri.parse('${AppConfig.apiBaseUrl}/riwayat-semua-permohonan'),
+        Uri.parse(
+            '${AppConfig.apiBaseUrl}/masyarakat/riwayat-semua-permohonan'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token'
         },
       );
+
+      // TAMBAHKAN BARIS INI UNTUK DEBUGGING
+      debugPrint("API Response Body: ${response.body}");
 
       if (!mounted) return;
 
@@ -209,8 +220,8 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
                   decoration: InputDecoration(
                     labelText: 'Jenis Surat',
                     hintText: 'Pilih jenis surat',
-                    prefixIcon:
-                        Icon(Icons.description_outlined, color: AppColors.mediumGrey),
+                    prefixIcon: Icon(Icons.description_outlined,
+                        color: AppColors.mediumGrey),
                     filled: true,
                     fillColor: Colors.grey[100],
                     border: OutlineInputBorder(
@@ -232,7 +243,8 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
                       : '${DateFormat('d MMM y', 'id_ID').format(tempTanggal!.start)} - ${DateFormat('d MMM y', 'id_ID').format(tempTanggal!.end)}'),
                   style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      textStyle:
+                          GoogleFonts.poppins(fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                       side: BorderSide(color: AppColors.lightGrey)),
@@ -263,7 +275,6 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        child: const Text('Reset'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           foregroundColor: AppColors.mediumGrey,
@@ -276,6 +287,7 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
                             tempTanggal = null;
                           });
                         },
+                        child: const Text('Reset'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -289,8 +301,8 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
                               borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Text('Terapkan',
-                            style:
-                                GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                            style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold)),
                         onPressed: () {
                           setState(() {
                             _filterJenisSurat = tempJenisSurat;
@@ -332,9 +344,13 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
           indicatorWeight: 3.5,
           labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold),
           unselectedLabelStyle: GoogleFonts.poppins(),
+          isScrollable: true,
           tabs: const [
-            Tab(text: 'DALAM PROSES'),
+            Tab(text: 'DRAFT'),
+            Tab(text: 'PENDING'),
+            Tab(text: 'DIPROSES'),
             Tab(text: 'SELESAI'),
+            Tab(text: 'DITOLAK'),
           ],
         ),
       ),
@@ -355,24 +371,41 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
       return Center(child: Text('Error: $_error'));
     }
 
-    final prosesList = _riwayatTersaring
-        .where((r) => r.status == 'pending' || r.status == 'diproses')
+    final draftList =
+        _riwayatTersaring.where((r) => r.status == 'draft').toList();
+    final pendingList =
+        _riwayatTersaring.where((r) => r.status == 'pending').toList();
+    final diprosesList = _riwayatTersaring
+        .where((r) => r.status == 'diterima' || r.status == 'diproses')
         .toList();
-    final selesaiList = _riwayatTersaring
-        .where((r) => r.status == 'selesai' || r.status == 'ditolak')
-        .toList();
+    final selesaiList =
+        _riwayatTersaring.where((r) => r.status == 'selesai').toList();
+    final ditolakList =
+        _riwayatTersaring.where((r) => r.status == 'ditolak').toList();
 
     return TabBarView(
       controller: _tabController,
       children: [
         _RiwayatListView(
-            riwayatList: prosesList,
+            riwayatList: draftList,
+            onRefresh: _fetchRiwayat,
+            emptyMessage: 'Tidak ada draft permohonan yang tersimpan.'),
+        _RiwayatListView(
+            riwayatList: pendingList,
+            onRefresh: _fetchRiwayat,
+            emptyMessage: 'Tidak ada permohonan yang menunggu persetujuan.'),
+        _RiwayatListView(
+            riwayatList: diprosesList,
             onRefresh: _fetchRiwayat,
             emptyMessage: 'Tidak ada permohonan yang sedang diproses.'),
         _RiwayatListView(
             riwayatList: selesaiList,
             onRefresh: _fetchRiwayat,
             emptyMessage: 'Belum ada riwayat permohonan yang selesai.'),
+        _RiwayatListView(
+            riwayatList: ditolakList,
+            onRefresh: _fetchRiwayat,
+            emptyMessage: 'Tidak ada permohonan yang ditolak.'),
       ],
     );
   }
@@ -398,8 +431,8 @@ class _RiwayatListView extends StatelessWidget {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
-                  padding:
-                      EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.2),
+                  padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).size.height * 0.2),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -420,7 +453,7 @@ class _RiwayatListView extends StatelessWidget {
               itemCount: riwayatList.length,
               itemBuilder: (context, index) {
                 final riwayat = riwayatList[index];
-                return _RiwayatCard(riwayat: riwayat);
+                return _RiwayatCard(riwayat: riwayat, onUpdate: onRefresh);
               },
             ),
     );
@@ -429,45 +462,147 @@ class _RiwayatListView extends StatelessWidget {
 
 class _RiwayatCard extends StatelessWidget {
   final Riwayat riwayat;
-  const _RiwayatCard({required this.riwayat});
+  final VoidCallback onUpdate;
+  const _RiwayatCard({required this.riwayat, required this.onUpdate});
+
+  void _navigateToForm(BuildContext context) async {
+    if (riwayat.jenisSuratSlug.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Error: Jenis surat tidak valid untuk draft ini.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FormPermohonanPage(
+          jenisSurat: riwayat.jenisSuratSlug,
+          pageTitle: 'Lanjutkan Draft',
+          initialData: riwayat.fullData,
+          draftId: riwayat.id,
+        ),
+      ),
+    );
+    if (result == true) {
+      onUpdate();
+    }
+  }
+
+  void _deleteDraft(BuildContext context) async {
+    if (riwayat.jenisSuratSlug.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Error: Gagal menghapus, jenis surat tidak valid.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Draft?'),
+        content: const Text('Apakah Anda yakin ingin menghapus draft ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Hapus', style: TextStyle(color: Colors.red.shade700)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmDelete != true) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+       // TAMBAHKAN LOG INI UNTUK DEBUGGING
+     debugPrint("Menghapus draft. Slug: ${riwayat.jenisSuratSlug}, ID: ${riwayat.id}");
+
+
+      final uri = Uri.parse(
+          '${AppConfig.apiBaseUrl}/masyarakat/draft/${riwayat.jenisSuratSlug}/${riwayat.id}');
+
+      final response = await http.delete(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token'
+        },
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Draft berhasil dihapus.'),
+          backgroundColor: Colors.green,
+        ));
+        onUpdate();
+      } else {
+        throw Exception('Gagal menghapus draft');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
 
   Widget _buildStatusChip(String status) {
     Color bgColor, fgColor;
     IconData icon;
+    String label = status;
 
     switch (status) {
+      case 'draft':
+        bgColor = Colors.grey.shade200;
+        fgColor = Colors.grey.shade800;
+        icon = Icons.edit_note_rounded;
+        label = 'Draft';
+        break;
       case 'pending':
         bgColor = Colors.orange.shade50;
         fgColor = Colors.orange.shade800;
         icon = Icons.hourglass_top_rounded;
+        label = 'Pending';
         break;
+      case 'diterima':
       case 'diproses':
         bgColor = Colors.blue.shade50;
         fgColor = Colors.blue.shade800;
         icon = Icons.sync;
+        label = 'Diproses';
         break;
       case 'selesai':
         bgColor = Colors.green.shade50;
         fgColor = Colors.green.shade800;
         icon = Icons.check_circle_rounded;
+        label = 'Selesai';
         break;
       case 'ditolak':
         bgColor = Colors.red.shade50;
         fgColor = Colors.red.shade800;
         icon = Icons.cancel_rounded;
+        label = 'Ditolak';
         break;
       default:
         bgColor = Colors.grey.shade200;
         fgColor = Colors.grey.shade800;
         icon = Icons.help_outline_rounded;
+        label = 'Tidak Diketahui';
     }
-
-    final label = status[0].toUpperCase() + status.substring(1);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration:
-          BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+          color: bgColor, borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -496,8 +631,10 @@ class _RiwayatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isInProcess =
-        riwayat.status == 'pending' || riwayat.status == 'diproses';
+    final bool isDraft = riwayat.status == 'draft';
+    final bool isInProcess = riwayat.status == 'pending' ||
+        riwayat.status == 'diproses' ||
+        riwayat.status == 'diterima';
 
     return Card(
       elevation: 0,
@@ -508,15 +645,18 @@ class _RiwayatCard extends StatelessWidget {
       ),
       color: Colors.white,
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => DetailPermohonanPage(
-                  permohonanId: riwayat.id, jenisSurat: riwayat.jenisSurat),
-            ),
-          );
-        },
+        onTap: isDraft
+            ? null
+            : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailPermohonanPage(
+                        permohonanId: riwayat.id,
+                        jenisSuratSlug: riwayat.jenisSuratSlug),
+                  ),
+                );
+              },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -539,15 +679,45 @@ class _RiwayatCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              _buildInfoRow(Icons.person_outline, 'Oleh: ${riwayat.namaPemohon}'),
-              const SizedBox(height: 8),
               _buildInfoRow(
-                  Icons.calendar_today_outlined, 'Diajukan: ${riwayat.tanggal}'),
+                  Icons.person_outline, 'Oleh: ${riwayat.namaPemohon}'),
+              const SizedBox(height: 8),
+              _buildInfoRow(Icons.calendar_today_outlined,
+                  'Diajukan: ${riwayat.tanggal}'),
               if (isInProcess && riwayat.estimasiSelesai != '-') ...[
                 const SizedBox(height: 8),
                 _buildInfoRow(Icons.timelapse_rounded,
                     'Estimasi Selesai: ${riwayat.estimasiSelesai}'),
               ],
+              if (isDraft) ...[
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        label: const Text('Hapus'),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            side: BorderSide(color: Colors.red.shade200)),
+                        onPressed: () => _deleteDraft(context),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Lanjutkan'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => _navigateToForm(context),
+                      ),
+                    )
+                  ],
+                )
+              ]
             ],
           ),
         ),

@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
   flutter_localizations:
     sdk: flutter
 
@@ -24,20 +24,23 @@ dependencies:
   provider: ^6.1.5
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
-  url_launcher: ^6.3.1
+  url_launcher: ^6.3.2
   font_awesome_flutter: ^10.8.0
-  firebase_messaging: ^15.2.7
-  firebase_core: ^3.14.0
   image_picker: ^1.1.2
   shimmer: ^3.0.0
   flutter_html: ^3.0.0-beta.2
 
+  workmanager: ^0.8.0
+  firebase_messaging: ^15.2.9
+  firebase_core: ^3.15.1
+  flutter_local_notifications: ^19.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  
+
   flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.6
 
 # Konfigurasi untuk Launcher Icons (indentasi sudah benar)
@@ -57,7 +60,6 @@ flutter:
     # - assets/images/ # Contoh jika Anda punya folder gambar
     # - assets/lottie/ # Contoh jika Anda punya animasi lottie
 
-    
 flutter_native_splash:
   # Warna latar belakang splash screen (kode hex untuk putih)
   color: "#FFFFFF"

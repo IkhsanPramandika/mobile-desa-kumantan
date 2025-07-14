@@ -73,7 +73,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final response = await http.get(
-      Uri.parse('${AppConfig.apiBaseUrl}/profil'),
+      Uri.parse('${AppConfig.apiBaseUrl}/masyarakat/profil'),
       headers: {
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
@@ -94,7 +94,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!mounted || token == null) return;
 
     await http.post(
-      Uri.parse('${AppConfig.apiBaseUrl}/logout'),
+      Uri.parse('${AppConfig.apiBaseUrl}/masyarakat/logout'),
       headers: {
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
@@ -166,7 +166,7 @@ class _ProfilePageState extends State<ProfilePage> {
               final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => EditProfilePage(currentUser: user),
+                  builder: (context) => EditProfilePage(),
                 ),
               );
               if (result == true) {
@@ -234,7 +234,8 @@ class _ProfilePageState extends State<ProfilePage> {
             radius: 36,
             backgroundColor: AppColors.primaryColor.withOpacity(0.1),
             backgroundImage: user.fotoProfil != null
-                ? NetworkImage('${AppConfig.baseUrl}/storage/${user.fotoProfil}')
+                ? NetworkImage(
+                    '${AppConfig.baseUrl}/storage/${user.fotoProfil}')
                 : const NetworkImage('https://i.pravatar.cc/150')
                     as ImageProvider,
           ),
@@ -287,8 +288,7 @@ class _ProfilePageState extends State<ProfilePage> {
       title: Text(title,
           style:
               GoogleFonts.poppins(fontWeight: FontWeight.w500, color: color)),
-      trailing:
-          isLogout ? null : const Icon(Icons.arrow_forward_ios, size: 16),
+      trailing: isLogout ? null : const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
     );
   }

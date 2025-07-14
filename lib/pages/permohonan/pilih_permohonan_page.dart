@@ -29,21 +29,21 @@ class PilihPermohonanPage extends StatelessWidget {
             icon: Icons.add_card_outlined,
             title: 'Permohonan KK Baru',
             subtitle: 'Membuat Kartu Keluarga untuk pertama kali.',
-            jenisSurat: 'kk_baru',
+            jenisSurat: 'permohonan-kk-baru',
           ),
           _buildMenuItem(
             context: context,
             icon: Icons.find_in_page_outlined,
             title: 'Permohonan KK Hilang',
             subtitle: 'Mengurus penerbitan ulang KK yang hilang.',
-            jenisSurat: 'kk_hilang',
+            jenisSurat: 'permohonan-kk-hilang',
           ),
           _buildMenuItem(
             context: context,
             icon: Icons.edit_document,
             title: 'Permohonan Perubahan Data KK',
             subtitle: 'Memperbarui data pada Kartu Keluarga.',
-            jenisSurat: 'kk_perubahan',
+            jenisSurat: 'permohonan-kk-perubahan-data',
           ),
           const SizedBox(height: 24),
           _buildCategoryHeader(
@@ -57,42 +57,42 @@ class PilihPermohonanPage extends StatelessWidget {
             icon: Icons.people_alt_outlined,
             title: 'SK Ahli Waris',
             subtitle: 'Surat untuk keperluan pembagian warisan.',
-            jenisSurat: 'sk_ahli_waris',
+            jenisSurat: 'permohonan-sk-ahli-waris',
           ),
           _buildMenuItem(
             context: context,
             icon: Icons.money_off_csred_outlined,
             title: 'SK Tidak Mampu',
             subtitle: 'Untuk pengajuan keringanan atau bantuan.',
-            jenisSurat: 'sk_tidak_mampu',
+            jenisSurat: 'permohonan-sk-tidak-mampu',
           ),
           _buildMenuItem(
             context: context,
             icon: Icons.home_work_outlined,
             title: 'SK Domisili',
             subtitle: 'Menyatakan keterangan tempat tinggal.',
-            jenisSurat: 'sk_domisili',
+            jenisSurat: 'permohonan-sk-domisili',
           ),
           _buildMenuItem(
             context: context,
             icon: Icons.child_friendly_outlined,
             title: 'SK Kelahiran',
             subtitle: 'Sebagai pengantar untuk mengurus Akta Kelahiran.',
-            jenisSurat: 'sk_kelahiran',
+            jenisSurat: 'permohonan-sk-kelahiran',
           ),
           _buildMenuItem(
             context: context,
             icon: Icons.favorite_border_outlined,
             title: 'SK Pengantar Nikah',
             subtitle: 'Sebagai pengantar untuk KUA atau lainnya.',
-            jenisSurat: 'sk_perkawinan',
+            jenisSurat: 'permohonan-sk-perkawinan',
           ),
           _buildMenuItem(
             context: context,
             icon: Icons.store_outlined,
             title: 'SK Usaha',
             subtitle: 'Menyatakan keterangan kepemilikan usaha.',
-            jenisSurat: 'sk_usaha',
+            jenisSurat: 'permohonan-sk-usaha',
           ),
         ],
       ),
@@ -152,7 +152,7 @@ class PilihPermohonanPage extends StatelessWidget {
             MaterialPageRoute(
               builder: (context) => FormPermohonanPage(
                 jenisSurat: jenisSurat,
-                pageTitle: title, // Mengirim judul ke halaman form
+                pageTitle: title,
               ),
             ),
           );
@@ -161,10 +161,3 @@ class PilihPermohonanPage extends StatelessWidget {
     );
   }
 }
-
-// Jangan lupa perbarui constructor di FormPermohonanPage untuk menerima pageTitle
-// Contoh di `form_permohonan_page.dart`:
-//
-// final String jenisSurat;
-// final String pageTitle;
-// const FormPermohonanPage({super.key, required this.jenisSurat, required this.pageTitle});

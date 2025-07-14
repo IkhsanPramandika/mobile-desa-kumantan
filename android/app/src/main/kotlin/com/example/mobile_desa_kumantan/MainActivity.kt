@@ -1,5 +1,7 @@
-package com.example.mobile_desa_kumantan
+
+package com.desakumantan.desaku
 
 import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity : FlutterActivity()
+class MainActivity: FlutterActivity() {
+}

@@ -1,39 +1,53 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
+// Bagian ini untuk membaca versi dari file local.properties
+// Kode ini ditambahkan untuk menggantikan `flutter.minSdkVersion` dll.
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+val flutterVersionCode = localProperties.getProperty("flutter.versionCode")?.toInt() ?: 1
+val flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0"
+
 android {
-    namespace = "com.example.mobile_desa_kumantan"
-    compileSdk = flutter.compileSdkVersion
+    // [PERBAIKAN 2] Menyesuaikan namespace agar cocok dengan Firebase
+    namespace = "com.desakumantan.desaku"
+    compileSdk = 35 // Menggunakan versi SDK yang stabil
     ndkVersion = "27.0.12077973"
 
     compileOptions {
+        // [PENAMBAHAN 3] Mengaktifkan desugaring
+        isCoreLibraryDesugaringEnabled = true
+        // Menggunakan versi Java yang lebih rendah untuk kompatibilitas desugaring
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.mobile_desa_kumantan"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        // [PERBAIKAN 4] Mengubah applicationId agar sama persis dengan di google-services.json
+        applicationId = "com.desakumantan.desaku"
+        minSdk = 21 // Menetapkan minSdk secara eksplisit
+        targetSdk = 35 // Menetapkan targetSdk secara eksplisit
+        versionCode = flutterVersionCode
+        versionName = flutterVersionName
+        // [PENAMBAHAN 5] Mengaktifkan multidex
+        multiDexEnabled = true
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -41,4 +55,13 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // [PENAMBAHAN 6] Menambahkan Firebase BoM dan library desugaring
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

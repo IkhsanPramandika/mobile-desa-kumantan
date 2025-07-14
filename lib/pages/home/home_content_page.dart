@@ -107,7 +107,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
 
   Future<UserProfile> _fetchProfil(String token) async {
     final response = await http.get(
-      Uri.parse('${AppConfig.apiBaseUrl}/profil'),
+      Uri.parse('${AppConfig.apiBaseUrl}/masyarakat/profil'),
       headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
@@ -120,7 +120,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
   Future<Riwayat?> _fetchRiwayatTerakhir(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('${AppConfig.apiBaseUrl}/riwayat-semua-permohonan?page=1&limit=1'),
+        Uri.parse('${AppConfig.apiBaseUrl}/masyarakat/riwayat-semua-permohonan?page=1&limit=1'),
         headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {

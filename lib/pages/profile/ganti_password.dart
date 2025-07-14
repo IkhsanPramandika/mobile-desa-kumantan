@@ -52,7 +52,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
     try {
       final response = await http.put(
-        Uri.parse('${AppConfig.apiBaseUrl}/password'),
+        Uri.parse('${AppConfig.apiBaseUrl}/masyarakat/password'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',

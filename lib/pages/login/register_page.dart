@@ -72,7 +72,7 @@ class _RegisterPageState extends State<RegisterPage> {
       // Menggunakan MultipartRequest untuk mengirim data form dan file
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('${AppConfig.apiBaseUrl}/register'),
+        Uri.parse('${AppConfig.apiBaseUrl}/masyarakat/register'),
       );
       request.headers['Accept'] = 'application/json';
 

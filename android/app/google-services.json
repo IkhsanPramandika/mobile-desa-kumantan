@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "553816927655",
+    "project_id": "desakumantan-611fd",
+    "storage_bucket": "desakumantan-611fd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:553816927655:android:260a91a8b68c8c31969a82",
+        "android_client_info": {
+          "package_name": "com.desakumantan.desaku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2tb2a6Ec5M1xE6rmrYNLjjoffiySN4hc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

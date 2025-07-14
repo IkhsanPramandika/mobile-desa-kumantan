@@ -8,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/config/app_config.dart';
 import '../home/dashboard_page.dart';
 import 'register_page.dart';
+// Import FirebaseMessagingService
+import '../../services/firebase_messaging_service.dart'; // <--- PASTIKAN PATH INI SESUAI
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -87,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('${AppConfig.apiBaseUrl}/login'),
+        Uri.parse('${AppConfig.apiBaseUrl}/masyarakat/login'),
         headers: {'Accept': 'application/json'},
         body: {
           'nik': _nikController.text,
@@ -105,6 +107,10 @@ class _LoginPageState extends State<LoginPage> {
         if (token != null) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('auth_token', token);
+
+          // PENTING: Panggil inisialisasi FCM setelah token autentikasi disimpan
+          // Ini akan memicu pengiriman FCM token ke server Laravel
+          await FirebaseMessagingService().initialize(); // <--- BARIS YANG DITAMBAHKAN
 
           if (!mounted) return;
           Navigator.of(context).pushReplacement(
