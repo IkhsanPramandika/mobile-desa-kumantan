@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+// Import halaman form yang sudah ada dan yang baru
 import 'form_permohonan_page.dart';
+import 'form_permohonan_lainnya_page.dart'; // <-- Halaman form baru
 
 class PilihPermohonanPage extends StatelessWidget {
   const PilihPermohonanPage({super.key});
@@ -18,6 +20,7 @@ class PilihPermohonanPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Kategori KK
           _buildCategoryHeader(
             icon: Icons.family_restroom_rounded,
             title: 'Urusan Kartu Keluarga (KK)',
@@ -45,7 +48,9 @@ class PilihPermohonanPage extends StatelessWidget {
             subtitle: 'Memperbarui data pada Kartu Keluarga.',
             jenisSurat: 'permohonan-kk-perubahan-data',
           ),
+
           const SizedBox(height: 24),
+          // Kategori SK
           _buildCategoryHeader(
             icon: Icons.description_rounded,
             title: 'Urusan Surat Keterangan (SK)',
@@ -94,12 +99,29 @@ class PilihPermohonanPage extends StatelessWidget {
             subtitle: 'Menyatakan keterangan kepemilikan usaha.',
             jenisSurat: 'permohonan-sk-usaha',
           ),
+
+          // --- KATEGORI BARU DITAMBAHKAN DI SINI ---
+          const SizedBox(height: 24),
+          _buildCategoryHeader(
+            icon: Icons.more_horiz_rounded,
+            title: 'Lainnya',
+            color: Colors.teal.shade800,
+          ),
+          const SizedBox(height: 12),
+          // --- MENU ITEM BARU ---
+          _buildSpecialMenuItem(
+            context: context,
+            icon: Icons.post_add_outlined,
+            title: 'SK Lainnya / Permohonan Khusus',
+            subtitle: 'Membuat surat yang tidak ada di daftar.',
+          ),
         ],
       ),
     );
   }
-  
-  Widget _buildCategoryHeader({required IconData icon, required String title, required Color color}) {
+
+  Widget _buildCategoryHeader(
+      {required IconData icon, required String title, required Color color}) {
     return Padding(
       padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
       child: Row(
@@ -119,6 +141,7 @@ class PilihPermohonanPage extends StatelessWidget {
     );
   }
 
+  // Widget ini untuk menu yang sudah ada
   Widget _buildMenuItem({
     required BuildContext context,
     required IconData icon,
@@ -132,7 +155,8 @@ class PilihPermohonanPage extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         leading: CircleAvatar(
           backgroundColor: Colors.blue.withOpacity(0.1),
           child: Icon(icon, color: Colors.blue.shade800),
@@ -154,6 +178,47 @@ class PilihPermohonanPage extends StatelessWidget {
                 jenisSurat: jenisSurat,
                 pageTitle: title,
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Widget baru untuk menu khusus "Lainnya"
+  Widget _buildSpecialMenuItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.1),
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        leading: CircleAvatar(
+          backgroundColor: Colors.teal.withOpacity(0.1),
+          child: Icon(icon, color: Colors.teal.shade800),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: GoogleFonts.poppins(color: Colors.grey.shade600),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              // Mengarah ke halaman form yang baru
+              builder: (context) => const FormPermohonanLainnyaPage(),
             ),
           );
         },

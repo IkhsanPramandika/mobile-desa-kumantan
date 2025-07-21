@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class AppConfig {
   // Alamat IP Komputer Anda di jaringan WiFi.
   // Ganti dengan alamat IP yang Anda dapatkan dari 'ipconfig'.
-  static const String _physicalDeviceIp = '192.168.1.8';
+  static const String _physicalDeviceIp = '192.168.1.4';
 
   static String get baseUrl {
     if (kIsWeb) {
