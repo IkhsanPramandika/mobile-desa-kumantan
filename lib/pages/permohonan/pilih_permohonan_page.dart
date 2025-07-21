@@ -217,8 +217,10 @@ class PilihPermohonanPage extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              // Mengarah ke halaman form yang baru
-              builder: (context) => const FormPermohonanLainnyaPage(),
+              builder: (context) => FormPermohonanLainnyaPage(
+                // [PERBAIKAN] Tambahkan parameter pageTitle di sini
+                pageTitle: title,
+              ),
             ),
           );
         },

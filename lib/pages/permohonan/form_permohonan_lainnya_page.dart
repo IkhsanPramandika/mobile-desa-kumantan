@@ -1,3 +1,5 @@
+// Lokasi: lib/pages/permohonan/form_permohonan_lainnya_page.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -6,18 +8,24 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// --- PENTING: GANTI DENGAN PATH ASLI PROJECT ANDA ---
-import '/core/config/app_config.dart';
-// import 'package:silades_kumantan/services/auth_service.dart';
+import '../../core/config/app_config.dart';
 
 class FormPermohonanLainnyaPage extends StatefulWidget {
+  // [PERBAIKAN] Tambahkan properti pageTitle
+  final String pageTitle;
   final Map<String, dynamic>? initialData;
   final int? draftId;
+  final int? revisiId;
+  final String? catatanPenolakan;
 
   const FormPermohonanLainnyaPage({
     super.key,
+    // [PERBAIKAN] Jadikan pageTitle wajib diisi
+    required this.pageTitle,
     this.initialData,
     this.draftId,
+    this.revisiId,
+    this.catatanPenolakan,
   });
 
   @override
@@ -29,16 +37,12 @@ class _FormPermohonanLainnyaPageState
     extends State<FormPermohonanLainnyaPage> {
   final _formKey = GlobalKey<FormState>();
   int? _currentDraftId;
+  int? _currentRevisiId;
 
-  // State untuk menyimpan data profil user
   Map<String, dynamic>? _userProfile;
-
-  // Controllers untuk data permohonan
   final _judulController = TextEditingController();
   final _keperluanController = TextEditingController();
   final _rincianController = TextEditingController();
-
-  // Controllers untuk data pemohon (jika bukan diri sendiri)
   final _namaLainController = TextEditingController();
   final _nikLainController = TextEditingController();
 
@@ -51,6 +55,7 @@ class _FormPermohonanLainnyaPageState
   void initState() {
     super.initState();
     _currentDraftId = widget.draftId;
+    _currentRevisiId = widget.revisiId;
 
     if (widget.initialData != null) {
       _populateFormFromDraft(widget.initialData!);
@@ -98,7 +103,6 @@ class _FormPermohonanLainnyaPageState
       );
 
       if (mounted && response.statusCode == 200) {
-        // Simpan data profil ke state
         setState(() {
           _userProfile = jsonDecode(response.body);
         });
@@ -163,9 +167,11 @@ class _FormPermohonanLainnyaPageState
     if (_currentDraftId != null) {
       request.fields['draft_id'] = _currentDraftId.toString();
     }
+
+    if (_currentRevisiId != null) {
+      request.fields['revisi_id'] = _currentRevisiId.toString();
+    }
     
-    // Kirim data pemohon lain jika switch aktif
-    // CATATAN: Pastikan backend Anda siap menerima field opsional ini
     if (_isForSomeoneElse) {
       request.fields['nama_pemohon_lain'] = _namaLainController.text;
       request.fields['nik_pemohon_lain'] = _nikLainController.text;
@@ -181,8 +187,11 @@ class _FormPermohonanLainnyaPageState
       if (!mounted) return;
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Permohonan berhasil diajukan!'),
+        final message = _currentRevisiId != null
+            ? 'Revisi permohonan berhasil dikirim!'
+            : 'Permohonan berhasil diajukan!';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(message),
             backgroundColor: Colors.green));
         Navigator.of(context).pop(true);
       } else {
@@ -293,7 +302,8 @@ class _FormPermohonanLainnyaPageState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Form Permohonan Khusus', style: GoogleFonts.poppins()),
+        // [PERBAIKAN] Gunakan widget.pageTitle yang sudah ditambahkan
+        title: Text(widget.pageTitle, style: GoogleFonts.poppins()),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 1,
@@ -306,6 +316,9 @@ class _FormPermohonanLainnyaPageState
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
+                  if (widget.catatanPenolakan != null)
+                    _buildCatatanRevisiCard(widget.catatanPenolakan!),
+
                   _buildPemohonSection(),
                   const SizedBox(height: 16),
                   _buildDetailSection(),
@@ -330,30 +343,76 @@ class _FormPermohonanLainnyaPageState
                             textStyle: GoogleFonts.poppins(
                                 fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                          label: Text(_currentDraftId != null
-                              ? "AJUKAN PERMOHONAN FINAL"
-                              : "AJUKAN PERMOHONAN"),
+                          label: Text(_currentRevisiId != null
+                              ? "KIRIM ULANG REVISI"
+                              : (_currentDraftId != null
+                                  ? "AJUKAN PERMOHONAN FINAL"
+                                  : "AJUKAN PERMOHONAN")),
                         ),
                         const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.drafts_outlined),
-                          label: const Text("SIMPAN SEBAGAI DRAFT"),
-                          onPressed: _simpanDraft,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.grey.shade700,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(color: Colors.grey.shade300),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            textStyle: GoogleFonts.poppins(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        )
+                        if (_currentRevisiId == null)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.drafts_outlined),
+                            label: const Text("SIMPAN SEBAGAI DRAFT"),
+                            onPressed: _simpanDraft,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey.shade700,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              textStyle: GoogleFonts.poppins(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          )
                       ],
                     )
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildCatatanRevisiCard(String catatan) {
+    return Card(
+      elevation: 2,
+      color: Colors.yellow.shade50,
+      shadowColor: Colors.black.withOpacity(0.1),
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.orange.shade200)
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Colors.orange.shade800),
+                const SizedBox(width: 8),
+                Text('Catatan Perbaikan dari Petugas',
+                    style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade900
+                    )
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Text(
+              catatan,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.black87,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -372,7 +431,6 @@ class _FormPermohonanLainnyaPageState
                     fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             
-            // Tampilkan data user jika tidak mengajukan untuk orang lain
             if (!_isForSomeoneElse && _userProfile != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),

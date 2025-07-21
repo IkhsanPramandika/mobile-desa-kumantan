@@ -1,3 +1,5 @@
+// Lokasi: lib/pages/permohonan/riwayat_permohonan_page.dart
+
 import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -12,6 +14,7 @@ import '../../core/config/app_config.dart';
 import 'detail_permohonan_page.dart';
 import 'form_permohonan_page.dart';
 
+// Kelas helper untuk warna, agar konsisten
 class AppColors {
   static final Color primaryColor = Colors.blue.shade800;
   static final Color lightGrey = Colors.grey.shade200;
@@ -19,6 +22,7 @@ class AppColors {
   static final Color mediumGrey = Colors.grey.shade600;
 }
 
+// Model untuk data riwayat permohonan
 class Riwayat {
   final int id;
   final String jenisSurat;
@@ -28,6 +32,8 @@ class Riwayat {
   final String namaPemohon;
   final String estimasiSelesai;
   final Map<String, dynamic> fullData;
+  // [PERUBAHAN] Tambahkan field untuk catatan penolakan
+  final String? catatanPenolakan;
 
   Riwayat({
     required this.id,
@@ -38,6 +44,7 @@ class Riwayat {
     required this.namaPemohon,
     required this.estimasiSelesai,
     required this.fullData,
+    this.catatanPenolakan, // [PERUBAHAN] Jadikan opsional
   });
 
   factory Riwayat.fromJson(Map<String, dynamic> json) {
@@ -50,6 +57,8 @@ class Riwayat {
       namaPemohon: json['nama_pemohon'] ?? 'Warga',
       estimasiSelesai: json['estimasi_selesai'] ?? '-',
       fullData: json,
+      // [PERUBAHAN] Ambil catatan penolakan dari JSON
+      catatanPenolakan: json['catatan_penolakan'],
     );
   }
 }
@@ -86,7 +95,8 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    // [PERUBAHAN] Tambahkan 1 tab baru untuk "Perlu Revisi", total menjadi 6
+    _tabController = TabController(length: 6, vsync: this);
     _fetchRiwayat();
     _setupFcmListener();
   }
@@ -102,6 +112,7 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
     _fcmSubscription =
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       if (mounted) {
+        // Muat ulang data jika ada notifikasi baru masuk saat halaman terbuka
         _fetchRiwayat();
       }
     });
@@ -131,9 +142,6 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
         },
       );
 
-      // TAMBAHKAN BARIS INI UNTUK DEBUGGING
-      debugPrint("API Response Body: ${response.body}");
-
       if (!mounted) return;
 
       if (response.statusCode == 200) {
@@ -144,7 +152,7 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
 
         setState(() {
           _semuaRiwayat = riwayatList;
-          _applyFilters();
+          _applyFilters(); // Terapkan filter yang mungkin sudah ada
           _isLoading = false;
         });
       } else {
@@ -345,9 +353,14 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
           labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold),
           unselectedLabelStyle: GoogleFonts.poppins(),
           isScrollable: true,
+          // [PERBAIKAN] Warna teks tab diubah menjadi putih
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.8),
           tabs: const [
             Tab(text: 'DRAFT'),
             Tab(text: 'PENDING'),
+            // [PERUBAHAN] Tambahkan tab "PERLU REVISI"
+            Tab(text: 'PERLU REVISI'),
             Tab(text: 'DIPROSES'),
             Tab(text: 'SELESAI'),
             Tab(text: 'DITOLAK'),
@@ -368,13 +381,21 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
       );
     }
     if (_error != null) {
-      return Center(child: Text('Error: $_error'));
+      return Center(
+          child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text('Error: $_error', textAlign: TextAlign.center),
+      ));
     }
 
     final draftList =
         _riwayatTersaring.where((r) => r.status == 'draft').toList();
     final pendingList =
         _riwayatTersaring.where((r) => r.status == 'pending').toList();
+    // [PERUBAHAN] Buat list untuk status revisi
+    final revisiList = _riwayatTersaring
+        .where((r) => r.status == 'membutuhkan_revisi')
+        .toList();
     final diprosesList = _riwayatTersaring
         .where((r) => r.status == 'diterima' || r.status == 'diproses')
         .toList();
@@ -394,6 +415,11 @@ class _RiwayatPermohonanPageState extends State<RiwayatPermohonanPage>
             riwayatList: pendingList,
             onRefresh: _fetchRiwayat,
             emptyMessage: 'Tidak ada permohonan yang menunggu persetujuan.'),
+        // [PERUBAHAN] Tambahkan view untuk tab revisi
+        _RiwayatListView(
+            riwayatList: revisiList,
+            onRefresh: _fetchRiwayat,
+            emptyMessage: 'Tidak ada permohonan yang perlu direvisi.'),
         _RiwayatListView(
             riwayatList: diprosesList,
             onRefresh: _fetchRiwayat,
@@ -490,6 +516,34 @@ class _RiwayatCard extends StatelessWidget {
     }
   }
 
+  // [PERUBAHAN] Fungsi navigasi untuk revisi
+  void _navigateToRevisiForm(BuildContext context) async {
+    if (riwayat.jenisSuratSlug.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Error: Jenis surat tidak valid untuk direvisi.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FormPermohonanPage(
+          jenisSurat: riwayat.jenisSuratSlug,
+          pageTitle: 'Revisi Permohonan',
+          initialData: riwayat.fullData,
+          // [PERUBAHAN] Kirim ID permohonan yang akan direvisi
+          revisiId: riwayat.id,
+          catatanPenolakan: riwayat.catatanPenolakan,
+        ),
+      ),
+    );
+    if (result == true) {
+      onUpdate();
+    }
+  }
+
   void _deleteDraft(BuildContext context) async {
     if (riwayat.jenisSuratSlug.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -522,10 +576,6 @@ class _RiwayatCard extends StatelessWidget {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
-
-       // TAMBAHKAN LOG INI UNTUK DEBUGGING
-     debugPrint("Menghapus draft. Slug: ${riwayat.jenisSuratSlug}, ID: ${riwayat.id}");
-
 
       final uri = Uri.parse(
           '${AppConfig.apiBaseUrl}/masyarakat/draft/${riwayat.jenisSuratSlug}/${riwayat.id}');
@@ -572,6 +622,13 @@ class _RiwayatCard extends StatelessWidget {
         fgColor = Colors.orange.shade800;
         icon = Icons.hourglass_top_rounded;
         label = 'Pending';
+        break;
+      // [PERUBAHAN] Tambahkan case untuk status revisi
+      case 'membutuhkan_revisi':
+        bgColor = Colors.yellow.shade100;
+        fgColor = Colors.yellow.shade900;
+        icon = Icons.edit_rounded;
+        label = 'Perlu Revisi';
         break;
       case 'diterima':
       case 'diproses':
@@ -632,6 +689,8 @@ class _RiwayatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDraft = riwayat.status == 'draft';
+    // [PERUBAHAN] Tambahkan flag untuk status revisi
+    final bool perluRevisi = riwayat.status == 'membutuhkan_revisi';
     final bool isInProcess = riwayat.status == 'pending' ||
         riwayat.status == 'diproses' ||
         riwayat.status == 'diterima';
@@ -645,7 +704,7 @@ class _RiwayatCard extends StatelessWidget {
       ),
       color: Colors.white,
       child: InkWell(
-        onTap: isDraft
+        onTap: isDraft || perluRevisi
             ? null
             : () {
                 Navigator.push(
@@ -716,6 +775,23 @@ class _RiwayatCard extends StatelessWidget {
                       ),
                     )
                   ],
+                )
+              ],
+              // [PERUBAHAN] Tampilkan tombol revisi jika statusnya 'membutuhkan_revisi'
+              if (perluRevisi) ...[
+                const Divider(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.edit_document),
+                  label: const Text('Revisi Sekarang'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)
+                    )
+                  ),
+                  onPressed: () => _navigateToRevisiForm(context),
                 )
               ]
             ],

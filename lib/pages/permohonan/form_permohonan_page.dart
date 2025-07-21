@@ -1,3 +1,5 @@
+// Lokasi: lib/pages/permohonan/form_permohonan_page.dart
+
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -22,6 +24,9 @@ class FormPermohonanPage extends StatefulWidget {
   final String pageTitle;
   final Map<String, dynamic>? initialData;
   final int? draftId;
+  // [PERUBAHAN] Tambahkan parameter untuk revisi
+  final int? revisiId;
+  final String? catatanPenolakan;
 
   const FormPermohonanPage({
     super.key,
@@ -29,6 +34,9 @@ class FormPermohonanPage extends StatefulWidget {
     required this.pageTitle,
     this.initialData,
     this.draftId,
+    // [PERUBAHAN] Jadikan opsional di constructor
+    this.revisiId,
+    this.catatanPenolakan,
   });
 
   @override
@@ -43,6 +51,8 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
   bool _isLoadingProfile = true;
   bool _isForSomeoneElse = false;
   int? _currentDraftId;
+  // [PERUBAHAN] Tambahkan state untuk revisiId
+  int? _currentRevisiId;
 
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, PlatformFileWrapper?> _selectedFiles = {};
@@ -52,8 +62,11 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
   void initState() {
     super.initState();
     _currentDraftId = widget.draftId;
+    // [PERUBAHAN] Inisialisasi revisiId
+    _currentRevisiId = widget.revisiId;
     _setupPageInfo();
 
+    // [PERUBAHAN] Logika populasi data sekarang juga menangani revisi
     if (widget.initialData != null) {
       _populateFormFromDraft(widget.initialData!);
     } else {
@@ -210,6 +223,9 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
   }
 
   bool _validateRequiredFiles() {
+    // Jika sedang revisi, file tidak wajib diisi ulang
+    if (_currentRevisiId != null) return true;
+
     Map<String, List<String>> requiredFilesMap = {
       'permohonan-kk-baru': ['file_kk', 'file_ktp', 'buku_nikah_akta_cerai'],
       'permohonan-kk-hilang': ['surat_keterangan_hilang_kepolisian'],
@@ -292,6 +308,11 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
       request.fields['draft_id'] = _currentDraftId.toString();
     }
 
+    // [PERUBAHAN] Tambahkan revisi_id ke request jika ada
+    if (_currentRevisiId != null) {
+      request.fields['revisi_id'] = _currentRevisiId.toString();
+    }
+
     if (widget.jenisSurat == 'permohonan-sk-ahli-waris') {
       List<Map<String, String>> daftarAhliWaris = [];
       for (var controllerMap in _ahliWarisControllers) {
@@ -324,8 +345,12 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
       if (!mounted) return;
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Permohonan berhasil diajukan!'),
+        // [PERUBAHAN] Pesan sukses yang lebih dinamis
+        final message = _currentRevisiId != null 
+            ? 'Revisi permohonan berhasil dikirim!' 
+            : 'Permohonan berhasil diajukan!';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(message),
             backgroundColor: Colors.green));
         Navigator.of(context).pop(true);
       } else {
@@ -460,6 +485,10 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
+                  // [PERUBAHAN] Tampilkan catatan penolakan jika ini adalah form revisi
+                  if (widget.catatanPenolakan != null)
+                    _buildCatatanRevisiCard(widget.catatanPenolakan!),
+
                   ..._buildFormWidgets(),
                   const SizedBox(height: 32),
                   if (_isLoading)
@@ -480,25 +509,30 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
                             textStyle: GoogleFonts.poppins(
                                 fontSize: 16, fontWeight: FontWeight.bold),
                           ),
-                          label: Text(_currentDraftId != null
-                              ? "AJUKAN PERMOHONAN FINAL"
-                              : "AJUKAN PERMOHONAN"),
+                          // [PERUBAHAN] Teks tombol dinamis
+                          label: Text(_currentRevisiId != null
+                              ? "KIRIM ULANG REVISI"
+                              : (_currentDraftId != null
+                                  ? "AJUKAN PERMOHONAN FINAL"
+                                  : "AJUKAN PERMOHONAN")),
                         ),
                         const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.drafts_outlined),
-                          label: const Text("SIMPAN SEBAGAI DRAFT"),
-                          onPressed: _simpanDraft,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.grey.shade700,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(color: Colors.grey.shade300),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            textStyle: GoogleFonts.poppins(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        )
+                        // [PERUBAHAN] Sembunyikan tombol draft jika sedang merevisi
+                        if (_currentRevisiId == null)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.drafts_outlined),
+                            label: const Text("SIMPAN SEBAGAI DRAFT"),
+                            onPressed: _simpanDraft,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey.shade700,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              textStyle: GoogleFonts.poppins(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          )
                       ],
                     )
                 ],
@@ -508,10 +542,8 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
   }
 
   List<Widget> _buildFormWidgets() {
-    // This is the main builder for the form content
     List<Widget> formContent = [];
 
-    // Add Pemohon Section for relevant forms
     if (![
       'permohonan-kk-baru',
       'permohonan-kk-hilang',
@@ -520,7 +552,6 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
       formContent.add(_buildPemohonSectionCard());
     }
 
-    // Add specific form fields based on jenisSurat
     switch (widget.jenisSurat) {
       case 'permohonan-kk-baru':
         formContent.add(_buildKKBaruFormCard());
@@ -558,7 +589,49 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
     return formContent;
   }
 
-  // --- UI Sections wrapped in Cards ---
+  // [PERUBAHAN] Widget baru untuk menampilkan catatan revisi
+  Widget _buildCatatanRevisiCard(String catatan) {
+    return Card(
+      elevation: 2,
+      color: Colors.yellow.shade50,
+      shadowColor: Colors.black.withOpacity(0.1),
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.orange.shade200)
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Colors.orange.shade800),
+                const SizedBox(width: 8),
+                Text('Catatan Perbaikan dari Petugas',
+                    style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade900
+                    )
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Text(
+              catatan,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.black87,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildPemohonSectionCard() {
     return Card(
@@ -980,8 +1053,6 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
       ),
     );
   }
-
-  // --- Helper Widgets ---
 
   Widget _buildSectionHeader(String title) {
     return Padding(
