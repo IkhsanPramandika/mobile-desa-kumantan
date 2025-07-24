@@ -102,16 +102,19 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
 
           final lampiranFields = {
             'File Kartu Keluarga': data['file_kk'],
-            'File KTP Pemohon': data['file_ktp'],
+            'File KK Lama (u/ Perubahan Data)': data['file_kk_lama'],
+            'File KTP': data['file_ktp'],
             'Surat Pengantar RT/RW': data['surat_pengantar_rt_rw'],
-            'Dokumen Pendukung': data['surat_keterangan_pendukung'],
+            'Dokumen Pendukung Perubahan Data':
+                data['surat_keterangan_pendukung'],
             'Surat Kehilangan Kepolisian':
                 data['surat_keterangan_hilang_kepolisian'],
             'Buku Nikah / Akta Cerai': data['buku_nikah_akta_cerai'],
             'Surat Pindah Datang': data['surat_pindah_datang'],
             'Ijazah Terakhir': data['ijazah_terakhir'],
-            'KTP Pemohon (Pengaju)': data['file_ktp_pemohon'],
-            'KK Pemohon (Pengaju)': data['file_kk_pemohon'],
+            'KTP Pemohon (Ahli Waris)':
+                data['file_ktp_pemohon'], // Jadikan lebih spesifik
+            'KK Pemohon (Ahli Waris)': data['file_kk_pemohon'],
             'KTP Ahli Waris': data['file_ktp_ahli_waris'],
             'KK Ahli Waris': data['file_kk_ahli_waris'],
             'Surat Kematian Pewaris': data['surat_keterangan_kematian'],
@@ -124,6 +127,7 @@ class _DetailPermohonanPageState extends State<DetailPermohonanPage> {
             'Sertifikat Elsimil': data['sertifikat_elsimil'],
             'Akta Perceraian': data['akta_penceraian'],
             'File Pendukung Lainnya': data['file_pendukung_lain'],
+            'Lampiran': data['lampiran'],
           };
 
           return SingleChildScrollView(

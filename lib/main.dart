@@ -5,22 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-// Ganti dengan path yang benar ke service dan halaman Anda
 import 'services/firebase_messaging_service.dart';
 import 'splash_logic_page.dart';
 
-// Handler ini akan dipanggil saat notifikasi dari Laravel diterima
-// ketika aplikasi berjalan di background atau ditutup.
+// [PERBAIKAN] Tambahkan GlobalKey untuk Navigator
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Dengan metode hybrid, kita tidak perlu lagi memanggil showLocalNotification di sini.
-  // Sistem operasi Android akan menangani tampilan notifikasi.
-  // Kita hanya perlu memastikan Firebase diinisialisasi.
   await Firebase.initializeApp();
-
   if (kDebugMode) {
-    print("--- BACKGROUND HANDLER TRIGGERED (Hybrid Payload) ---");
-    print("Pesan diterima oleh aplikasi, tampilan ditangani oleh OS.");
+    print("--- BACKGROUND HANDLER TRIGGERED ---");
     print("Message data: ${message.data}");
   }
 }
@@ -30,7 +25,10 @@ Future<void> main() async {
   await initializeDateFormatting('id_ID', null);
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
+  // Inisialisasi service notifikasi
   await FirebaseMessagingService().initialize();
+  
   runApp(const MyApp());
 }
 
@@ -40,6 +38,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // [PERBAIKAN] Pasang navigatorKey di sini
+      navigatorKey: navigatorKey,
       title: 'Layanan Desa Kumantan',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [

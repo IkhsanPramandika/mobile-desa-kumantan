@@ -228,7 +228,7 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
 
     Map<String, List<String>> requiredFilesMap = {
       'permohonan-kk-baru': ['file_kk', 'file_ktp', 'buku_nikah_akta_cerai'],
-      'permohonan-kk-hilang': ['surat_keterangan_hilang_kepolisian'],
+      'permohonan-kk-hilang': ['surat_keterangan_hilang_kepolisian', 'file_kk_lama', 'file_ktp_pemohon'],
       'permohonan-kk-perubahan-data': [
         'file_kk',
         'file_ktp',
@@ -346,12 +346,11 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         // [PERUBAHAN] Pesan sukses yang lebih dinamis
-        final message = _currentRevisiId != null 
-            ? 'Revisi permohonan berhasil dikirim!' 
+        final message = _currentRevisiId != null
+            ? 'Revisi permohonan berhasil dikirim!'
             : 'Permohonan berhasil diajukan!';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(message),
-            backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.green));
         Navigator.of(context).pop(true);
       } else {
         final errors = jsonDecode(responseBody);
@@ -597,9 +596,8 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
       shadowColor: Colors.black.withOpacity(0.1),
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.orange.shade200)
-      ),
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.orange.shade200)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -613,9 +611,7 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
                     style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.orange.shade900
-                    )
-                ),
+                        color: Colors.orange.shade900)),
               ],
             ),
             const Divider(height: 16),
@@ -730,7 +726,10 @@ class _FormPermohonanPageState extends State<FormPermohonanPage> {
             _buildSectionHeader('Lampiran Dokumen'),
             _buildFilePickerField('surat_keterangan_hilang_kepolisian',
                 'Surat Kehilangan dari Kepolisian'),
-            _buildFilePickerField('file_kk_lama', 'File Kartu Keluarga Lama',
+            _buildFilePickerField('file_kk_lama', 'File Kartu Keluarga Lama'),
+            _buildFilePickerField('file_ktp_pemohon', 'File KTP Pemohon'),
+            _buildFilePickerField(
+                'surat_pengantar_rt_rw', 'Surat Pengantar RT/RW',
                 isRequired: false),
             _buildSectionHeader('Catatan Tambahan'),
             _buildTextField('catatan_pemohon', 'Catatan untuk petugas',
