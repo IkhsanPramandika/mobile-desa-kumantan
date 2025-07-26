@@ -221,9 +221,10 @@ class _RegisterPageState extends State<RegisterPage> {
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 16),
+          // [PERBAIKAN] Mengubah label email menjadi opsional
           _buildTextField(
             controller: _emailController,
-            label: 'Alamat Email',
+            label: 'Alamat Email (Opsional)',
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
           ),
@@ -335,6 +336,19 @@ class _RegisterPageState extends State<RegisterPage> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       validator: (value) {
+        // [PERBAIKAN] Logika validasi untuk email
+        if (label.contains('Email')) {
+          // Jika diisi, validasi formatnya. Jika kosong, biarkan (valid).
+          if (value != null && value.isNotEmpty) {
+            final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+            if (!emailRegex.hasMatch(value)) {
+              return 'Masukkan format email yang valid';
+            }
+          }
+          return null; // Email valid jika kosong atau formatnya benar
+        }
+
+        // Validasi untuk field lain yang wajib diisi
         if (value == null || value.isEmpty) {
           return '$label tidak boleh kosong';
         }

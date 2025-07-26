@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/app_config.dart';
 import '../permohonan/pilih_permohonan_page.dart';
 import '../permohonan/riwayat_permohonan_page.dart';
+import '../permohonan/detail_permohonan_page.dart';
 import '../notifications/notification_page.dart';
 import '../berita/berita_detail_page.dart';
 
@@ -54,7 +55,7 @@ class Berita {
       // [PERBAIKAN] Menggunakan 'tanggal' sesuai API Resource (cara lama)
       tanggal: json['tanggal'] ?? 'Tanggal tidak tersedia',
       // [PERBAIKAN] Menggunakan 'url_gambar' sesuai API Resource (cara lama)
-      gambarUrl: json['gambar_pengumuman'],
+      gambarUrl: json['url_gambar'],
       // [PERBAIKAN] Menggunakan 'ringkasan' sesuai API Resource (cara lama)
       ringkasan: json['ringkasan'] ?? '',
     );
@@ -62,14 +63,22 @@ class Berita {
 }
 
 class Riwayat {
+  final int id; // <-- TAMBAHKAN
   final String jenisSurat;
+  final String jenisSuratSlug; // <-- TAMBAHKAN
   final String status;
 
-  Riwayat({required this.jenisSurat, required this.status});
+  Riwayat(
+      {required this.id, // <-- TAMBAHKAN
+      required this.jenisSurat,
+      required this.jenisSuratSlug, // <-- TAMBAHKAN
+      required this.status});
 
   factory Riwayat.fromJson(Map<String, dynamic> json) {
     return Riwayat(
+        id: json['id'] ?? 0, // <-- TAMBAHKAN
         jenisSurat: json['jenis_surat'] ?? 'N/A',
+        jenisSuratSlug: json['jenis_surat_slug'] ?? '', // <-- TAMBAHKAN
         status: json['status'] ?? 'N/A');
   }
 }
@@ -272,7 +281,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (data.riwayatTerakhir != null) ...[
-                        _buildStatusTerakhir(data.riwayatTerakhir!),
+                        _buildStatusTerakhir(context, data.riwayatTerakhir!),
                         const SizedBox(height: 24),
                       ],
                       _buildSectionTitle(title: 'Layanan Desa'),
@@ -531,36 +540,57 @@ class _HomeContentPageState extends State<HomeContentPage> {
     }
   }
 
-  Widget _buildStatusTerakhir(Riwayat riwayat) {
-    return Card(
-      elevation: 0,
-      color: Colors.blue.shade50,
-      shape: RoundedRectangleBorder(
+  Widget _buildStatusTerakhir(BuildContext context, Riwayat riwayat) {
+    // [PERBAIKAN] Bungkus dengan InkWell agar bisa diklik
+    return InkWell(
+      onTap: () {
+        // Navigasi ke halaman detail saat di-klik
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailPermohonanPage(
+              permohonanId: riwayat.id,
+              jenisSuratSlug: riwayat.jenisSuratSlug,
+            ),
+          ),
+        );
+      },
+      borderRadius:
+          BorderRadius.circular(12), // Efek ripple mengikuti bentuk Card
+      child: Card(
+        elevation: 0,
+        color: Colors.blue.shade50,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.blue.shade100)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            const Icon(Icons.info_outline_rounded,
-                color: Colors.blue, size: 32),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Status Permohonan Terakhir:",
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                  Text(
+          side: BorderSide(color: Colors.blue.shade100),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  color: Colors.blue, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Status Permohonan Terakhir:",
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
                       '${riwayat.jenisSurat} Anda berstatus "${riwayat.status}".',
                       style: GoogleFonts.poppins(),
                       maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ],
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-          ],
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );
@@ -642,17 +672,20 @@ class _HomeContentPageState extends State<HomeContentPage> {
     );
   }
 
+  // Lokasi: Di dalam class _HomeContentPageState
+
   Widget _buildInfoTerbaru(BuildContext context, List<Berita> berita) {
     if (berita.isEmpty) {
       return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200)),
-          child: const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('Belum ada info terbaru dari desa.'),
-          ));
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200)),
+        child: const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('Belum ada info terbaru dari desa.'),
+        ),
+      );
     }
     return Container(
       decoration: BoxDecoration(
@@ -675,7 +708,9 @@ class _HomeContentPageState extends State<HomeContentPage> {
                     color: Colors.grey.shade200,
                     child: news.gambarUrl != null && news.gambarUrl!.isNotEmpty
                         ? Image.network(
-                            '${AppConfig.baseUrl}/storage/${news.gambarUrl!}',
+                            // --- PERBAIKAN DI SINI ---
+                            // Langsung gunakan news.gambarUrl tanpa digabung lagi
+                            news.gambarUrl!,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return const Icon(Icons.broken_image,
